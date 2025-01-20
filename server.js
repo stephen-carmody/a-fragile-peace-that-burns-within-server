@@ -13,7 +13,12 @@ wss.on("connection", (ws) => {
 
     // Handle incoming messages
     ws.on("message", (message) => {
-        const data = JSON.parse(message);
+        try {
+            const data = JSON.parse(message);
+        } catch (error) {
+            console.error(error);
+            return;
+        }
 
         // If the client provides an ID, check if it's a known client
         if (data.type === "init" && data.clientId) {
