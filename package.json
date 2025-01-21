@@ -1,17 +1,17 @@
 {
-  "name": "a-fragile-peace-that-burns-within-server",
-  "author": "stephen-carmody",
-  "version": "0.1.0",
-  "private": false,
-  "licence": "MIT",
-  "type": "module",
-  "scripts": {
-    "start": "npm install; node server.js"
-  },
-  "devDependencies": {
-    "prettier": "^3.4.2"
-  },
-  "dependencies": {
-    "ws": "^8.18.0"
-  }
+    "name": "a-fragile-peace-that-burns-within-server",
+    "author": "stephen-carmody",
+    "version": "0.1.0",
+    "private": false,
+    "licence": "MIT",
+    "type": "module",
+    "scripts": {
+        "start": "npm install; node main.js"
+    },
+    "devDependencies": {
+        "prettier": "^3.4.2"
+    },
+    "dependencies": {
+        "ws": "^8.18.0"
+    }
 }
