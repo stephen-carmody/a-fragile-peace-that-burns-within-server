@@ -5,19 +5,6 @@ import { createClientManager } from "./clientManager.js";
 const clientManager = createClientManager({
     keepAliveTimeout: 30000, // 30 seconds
     updateInterval: 5000, // 5 seconds
-    messageHandlers: {
-        customMessage: (client, message) => {
-            console.log(
-                "Custom message received from client:",
-                client.clientId,
-                message
-            );
-            clientManager.send(client, {
-                type: "customMessage",
-                content: "Ack",
-            });
-        },
-    },
     onUpdate: (clients) => {
         console.log("Update cycle running. Active clients:", clients.size);
         clients.forEach((client, clientId) => {
@@ -26,28 +13,21 @@ const clientManager = createClientManager({
             );
         });
     },
-    onConnect: (client, isRestored) => {
-        if (isRestored) {
-            console.log(
-                `Client ${client.clientId} restored from disk. Properties:`,
-                client.properties
-            );
-            clientManager.broadcast({
-                type: "reconnected",
-                clientId: client.clientId,
-                properties: client.properties,
-            });
-        } else {
-            console.log(`New client connected with ID: ${client.clientId}`);
-            clientManager.broadcast({
-                type: "connected",
-                clientId: client.clientId,
-                properties: client.properties,
-            });
-        }
+    onConnect: (client) => {
+        // Log the client connection
+        console.log(`Client connected with ID: ${client.clientId}`);
+
+        // Broadcast a "connected" message to all clients
+        clientManager.broadcast({
+            type: "connected",
+            clientId: client.clientId,
+            properties: client.properties,
+        });
+
+        // Send a welcome message to the newly connected client
         clientManager.send(client, {
-            type: "welcome",
-            message: "Welcome to the server!",
+            type: "message", // Changed from "welcome" to "message"
+            content: "Welcome to the server!",
         });
     },
     onDisconnect: (client) => {

@@ -8,7 +8,7 @@ import path from "path";
  * @param {number} [options.updateInterval=5000] - Interval for checking inactive clients (in milliseconds).
  * @param {object} [options.messageHandlers={}] - Custom handlers for message types.
  * @param {function} [options.onUpdate] - Handler called during each update cycle.
- * @param {function} [options.onConnect] - Handler called when a new client connects or a known client is restored from disk.
+ * @param {function} [options.onConnect] - Handler called when a new client connects.
  * @param {function} [options.onDisconnect] - Handler called when a client disconnects or is removed due to inactivity.
  * @returns {object} An object exposing the `send`, `broadcast`, and `close` functions.
  */
@@ -61,11 +61,14 @@ export function createClientManager(options = {}) {
                     clientId,
                     persistedClient.properties
                 );
-                if (onConnect) onConnect(client, true);
             } else {
                 client = createClient(client.ws, clientId);
-                if (onConnect) onConnect(client, false);
             }
+        }
+
+        // Notify that the client has connected
+        if (onConnect) {
+            onConnect(client);
         }
 
         send(client, {
@@ -95,11 +98,22 @@ export function createClientManager(options = {}) {
         broadcast({ type: "broadcast", content: message.content });
     };
 
+    /**
+     * Default handler for the "alive" message type.
+     * This handler does nothing but can be used to update the client's lastSeen timestamp.
+     * @param {object} client - The client object.
+     * @param {object} message - The message content.
+     */
+    const handleAlive = (client, message) => {
+        // Do nothing, but the client's lastSeen timestamp will be updated automatically
+    };
+
     // Default handlers
     const defaultHandlers = {
         init: handleInit,
         message: handleMessage,
         broadcast: handleBroadcast,
+        alive: handleAlive, // Add the new "alive" handler
     };
     const allHandlers = { ...defaultHandlers, ...messageHandlers };
 
