@@ -6,18 +6,10 @@ import WebSocket, { WebSocketServer } from "ws";
  * @param {number} [options.port=8080] - The port to listen on.
  * @param {string} [options.messageDelimiter=";"] - The delimiter for splitting combined messages.
  * @param {function} [options.onMessage] - Callback for handling incoming messages.
- * @param {function} [options.onConnection] - Callback for handling new connections.
- * @param {function} [options.onClose] - Callback for handling disconnections.
  * @returns {object} An object exposing the `send` and `broadcast` functions.
  */
 export function createSocketManager(options = {}) {
-    const {
-        port = 8080,
-        messageDelimiter = ";",
-        onMessage,
-        onConnection,
-        onClose,
-    } = options;
+    const { port = 8080, messageDelimiter = ";", onMessage } = options;
 
     // Create the WebSocket server
     const wss = new WebSocketServer({ port });
@@ -49,11 +41,6 @@ export function createSocketManager(options = {}) {
 
     // Handle new connections
     wss.on("connection", (ws) => {
-        // Notify of the new connection
-        if (onConnection) {
-            onConnection(ws);
-        }
-
         // Handle incoming messages
         ws.on("message", (message) => {
             // Split combined messages using the delimiter
@@ -81,14 +68,6 @@ export function createSocketManager(options = {}) {
                     onMessage(ws, message);
                 }
             });
-        });
-
-        // Handle disconnection
-        ws.on("close", () => {
-            // Notify of the disconnection
-            if (onClose) {
-                onClose(ws);
-            }
         });
 
         // Handle WebSocket errors

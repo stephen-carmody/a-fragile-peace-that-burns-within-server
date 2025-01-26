@@ -1,30 +1,21 @@
 import fs from "fs";
 import path from "path";
+import { createSocketManager } from "./socketManager.js";
 
-/**
- * Creates a client manager to handle client-related logic.
- * @param {object} options - Configuration options for the client manager.
- * @param {number} [options.keepAliveTimeout=30000] - Timeout for inactive clients (in milliseconds).
- * @param {number} [options.updateInterval=5000] - Interval for checking inactive clients (in milliseconds).
- * @param {object} [options.messageHandlers={}] - Custom handlers for message types.
- * @param {function} [options.onUpdate] - Handler called during each update cycle.
- * @param {function} [options.onConnect] - Handler called when a new client connects.
- * @param {function} [options.onDisconnect] - Handler called when a client disconnects or is removed due to inactivity.
- * @returns {object} An object exposing the `send`, `broadcast`, and `close` functions.
- */
 export function createClientManager(options = {}) {
     const {
         keepAliveTimeout = 30000,
         updateInterval = 5000,
         messageHandlers = {},
         onUpdate,
-        onConnect,
-        onDisconnect,
+        onConnect: customOnConnect,
+        onDisconnect: customOnDisconnect,
     } = options;
 
     // Maps to store clients and their metadata
-    const clients = new Map(); // Key: clientId, Value: { ws, lastSeen, properties, clientId }
+    const clients = new Map(); // Key: clientId, Value: { ws, lastSeen, properties, clientId, clientSecret }
     const wsToClientId = new Map(); // Key: WebSocket, Value: clientId
+    const secretToClientId = new Map();
     const dataDir = "./data/client";
 
     // Ensure the data directory exists
@@ -33,47 +24,143 @@ export function createClientManager(options = {}) {
     }
 
     /**
-     * Default handler for the "init" message type.
+     * Default handler for client connections.
+     * Logs the connection, broadcasts a "connected" message, and sends a welcome message.
      * @param {object} client - The client object.
-     * @param {object} message - The message containing clientId (optional).
      */
-    const handleInit = (client, message) => {
-        let { clientId } = message;
+    const defaultOnConnect = (client) => {
+        // Broadcast a "connected" message to all clients
+        broadcast({
+            type: "connected",
+            clientId: client.clientId,
+            properties: client.properties,
+        });
 
-        if (clientId && clients.has(clientId)) {
-            console.log(`Known client connected with ID: ${clientId}`);
-            clients.set(clientId, {
-                ...client,
-                lastSeen: Date.now(),
-                clientId,
-            });
-            wsToClientId.set(client.ws, clientId);
-        } else {
-            const persistedClient = clientId
-                ? loadClientFromDisk(clientId)
-                : null;
-            if (persistedClient) {
+        // Send a welcome message to the newly connected client
+        send(client, {
+            type: "message",
+            content: "Welcome to the server!",
+        });
+    };
+
+    /**
+     * Default handler for client disconnections.
+     * Logs the disconnection and broadcasts a "disconnected" message.
+     * @param {object} client - The client object.
+     */
+    const defaultOnDisconnect = (client) => {
+        console.log(`Client ${client.clientId} disconnected.`);
+
+        // Broadcast a "disconnected" message to all clients
+        broadcast({
+            type: "disconnected",
+            clientId: client.clientId,
+            properties: client.properties,
+        });
+    };
+
+    // Combine default and custom handlers
+    const onConnect = (client) => {
+        defaultOnConnect(client);
+        if (customOnConnect) {
+            customOnConnect(client);
+        }
+    };
+
+    const onDisconnect = (client) => {
+        defaultOnDisconnect(client);
+        if (customOnDisconnect) {
+            customOnDisconnect(client);
+        }
+    };
+
+    /**
+     * Resolves a WebSocket to a client object, handling all cases:
+     * 1. Already connected client (found in wsToClientId).
+     * 2. Reconnecting client with a valid clientSecret.
+     * 3. Load client from disk if clientSecret is provided.
+     * 4. New client if no matching client is found.
+     * @param {WebSocket} ws - The WebSocket instance.
+     * @param {object} message - The message containing clientSecret (optional).
+     * @returns {object} The client object.
+     */
+    const resolveClient = (ws, message) => {
+        // Case 1: Already connected client
+        if (wsToClientId.has(ws)) {
+            const clientId = wsToClientId.get(ws);
+            const client = clients.get(clientId);
+            if (client) return client;
+        }
+
+        const clientSecret = message?.clientSecret;
+
+        // Case 2: Reconnecting client with a valid clientSecret
+        if (clientSecret && secretToClientId.has(clientSecret)) {
+            const clientId = secretToClientId.get(clientSecret);
+            const client = clients.get(clientId);
+
+            if (client) {
                 console.log(
-                    `Known client connected with ID: ${clientId} (restored from disk)`
+                    `Reestablished new WebSocket for client with ID: ${clientId}`
                 );
-                client = createClient(
-                    client.ws,
-                    clientId,
-                    persistedClient.properties
-                );
-            } else {
-                client = createClient(client.ws, clientId);
+                client.ws = ws; // Update the WebSocket
+                client.lastSeen = Date.now();
+                wsToClientId.set(ws, clientId);
+                return client;
             }
         }
 
-        // Notify that the client has connected
-        if (onConnect) {
-            onConnect(client);
+        // Case 3: Load client from disk if clientSecret is provided
+        if (clientSecret) {
+            const loadedClient = loadClientFromDisk(clientSecret);
+            if (loadedClient) {
+                console.log(
+                    `Loaded client from disk with ID: ${loadedClient.clientId}`
+                );
+                const client = { ...loadedClient, ws, lastSeen: Date.now() };
+                clients.set(client.clientId, client);
+                wsToClientId.set(ws, client.clientId);
+                secretToClientId.set(client.clientSecret, client.clientId);
+
+                // Notify that the client has reconnected (loaded from disk)
+                onConnect(client);
+                return client;
+            }
         }
 
+        // Case 4: New client
+        const client = {
+            ws,
+            lastSeen: Date.now(),
+            clientId: generateRandomId(),
+            clientSecret: generateRandomId(),
+            properties: {},
+        };
+        console.log(`New client connected, generated ID: ${client.clientId}`);
+        clients.set(client.clientId, client);
+        wsToClientId.set(ws, client.clientId);
+        secretToClientId.set(client.clientSecret, client.clientId);
+
+        // Persist the new client to disk
+        persistClientToDisk(client);
+
+        // Notify that the client has connected
+        onConnect(client);
+
+        return client;
+    };
+
+    /**
+     * Default handler for the "init" message type.
+     * @param {object} client - The client object.
+     * @param {object} message - The message containing clientSecret (optional).
+     */
+    const handleInit = (client, message) => {
+        // Send the init response
         send(client, {
             type: "init",
             clientId: client.clientId,
+            clientSecret: client.clientSecret,
             keepAliveTimeout,
             updateInterval,
         });
@@ -113,7 +200,7 @@ export function createClientManager(options = {}) {
         init: handleInit,
         message: handleMessage,
         broadcast: handleBroadcast,
-        alive: handleAlive, // Add the new "alive" handler
+        alive: handleAlive,
     };
     const allHandlers = { ...defaultHandlers, ...messageHandlers };
 
@@ -122,24 +209,6 @@ export function createClientManager(options = {}) {
      * @returns {string} A random alphanumeric string.
      */
     const generateRandomId = () => Math.random().toString(36).substring(2, 15);
-
-    /**
-     * Creates a new client and adds it to the clients map.
-     * @param {WebSocket} ws - The WebSocket instance.
-     * @param {string} [clientId] - Optional client ID. If not provided, a new ID will be generated.
-     * @param {object} [properties] - Optional properties to associate with the client.
-     * @returns {object} The created client object.
-     */
-    const createClient = (ws, clientId, properties = {}) => {
-        if (!clientId) {
-            clientId = generateRandomId();
-            console.log(`New client connected, generated ID: ${clientId}`);
-        }
-        const client = { ws, lastSeen: Date.now(), properties, clientId };
-        clients.set(clientId, client);
-        wsToClientId.set(ws, clientId);
-        return client;
-    };
 
     /**
      * Sends a message to a specific client.
@@ -167,17 +236,17 @@ export function createClientManager(options = {}) {
 
     /**
      * Loads client data from disk if it exists.
-     * @param {string} clientId - The client ID to load.
+     * @param {string} clientSecret - The client to load.
      * @returns {object|null} The client data if found, otherwise null.
      */
-    const loadClientFromDisk = (clientId) => {
-        const filePath = path.join(dataDir, `client-${clientId}.json`);
+    const loadClientFromDisk = (clientSecret) => {
+        const filePath = path.join(dataDir, `client-${clientSecret}.json`);
         if (fs.existsSync(filePath)) {
             try {
                 return JSON.parse(fs.readFileSync(filePath, "utf8"));
             } catch (error) {
                 console.error(
-                    `Error reading client data for ${clientId}:`,
+                    `Error reading client data for ${clientSecret}:`,
                     error
                 );
             }
@@ -186,19 +255,21 @@ export function createClientManager(options = {}) {
     };
 
     /**
-     * Persists client information to disk.
+     * Persists a single client's information to disk.
+     * @param {object} client - The client object.
      */
-    const persistClientsToDisk = () => {
-        clients.forEach((client, clientId) => {
-            const filePath = path.join(dataDir, `client-${clientId}.json`);
-            const clientData = {
-                clientId,
-                lastSeen: client.lastSeen,
-                properties: client.properties || {},
-            };
-            fs.writeFileSync(filePath, JSON.stringify(clientData, null, 2));
-            console.log(`Persisted client data to ${filePath}`);
-        });
+    const persistClientToDisk = (client) => {
+        const filePath = path.join(
+            dataDir,
+            `client-${client.clientSecret}.json`
+        );
+        const clientData = {
+            clientId: client.clientId,
+            clientSecret: client.clientSecret,
+            lastSeen: client.lastSeen,
+            properties: client.properties || {},
+        };
+        fs.writeFileSync(filePath, JSON.stringify(clientData, null, 2));
     };
 
     /**
@@ -222,9 +293,7 @@ export function createClientManager(options = {}) {
      * @param {WebSocket} ws - The WebSocket instance of the client.
      */
     const removeClient = (clientId, ws) => {
-        if (onDisconnect) {
-            onDisconnect(clients.get(clientId));
-        }
+        onDisconnect(clients.get(clientId));
         ws.close();
         clients.delete(clientId);
         wsToClientId.delete(ws);
@@ -246,36 +315,15 @@ export function createClientManager(options = {}) {
     // Handle process exit to persist client data
     process.on("SIGINT", () => {
         console.log("Process is terminating. Persisting client data...");
-        persistClientsToDisk();
+        clients.forEach((client) => persistClientToDisk(client));
         process.exit();
     });
 
     process.on("SIGTERM", () => {
         console.log("Process is terminating. Persisting client data...");
-        persistClientsToDisk();
+        clients.forEach((client) => persistClientToDisk(client));
         process.exit();
     });
-
-    /**
-     * Handles a new WebSocket connection.
-     * @param {WebSocket} ws - The WebSocket instance of the new client.
-     */
-    const handleConnection = (ws) => {
-        console.log("Client connected");
-        wsToClientId.set(ws, null);
-    };
-
-    /**
-     * Handles a WebSocket disconnection.
-     * @param {WebSocket} ws - The WebSocket instance of the disconnected client.
-     */
-    const handleClose = (ws) => {
-        console.log("Client disconnected");
-        const clientId = wsToClientId.get(ws);
-        if (clientId) {
-            removeClient(clientId, ws);
-        }
-    };
 
     /**
      * Handles an incoming message from a WebSocket.
@@ -283,12 +331,10 @@ export function createClientManager(options = {}) {
      * @param {object} message - The parsed message received from the client.
      */
     const handleMessageFromSocket = (ws, message) => {
-        const clientId = wsToClientId.get(ws);
-        let client = clientId
-            ? clients.get(clientId)
-            : { ws, lastSeen: Date.now(), clientId: null };
+        const client = resolveClient(ws, message);
 
-        if (clientId) client.lastSeen = Date.now();
+        // Update the client's lastSeen timestamp
+        client.lastSeen = Date.now();
 
         const { type } = message;
         if (allHandlers[type]) {
@@ -302,15 +348,17 @@ export function createClientManager(options = {}) {
         }
     };
 
+    // Create the socket manager and pass client-related callbacks
+    const socketManager = createSocketManager({
+        onMessage: handleMessageFromSocket,
+    });
+
     return {
         send,
         broadcast,
         close: () => {
             clearInterval(updateIntervalId);
-            persistClientsToDisk();
+            clients.forEach((client) => persistClientToDisk(client));
         },
-        handleConnection,
-        handleClose,
-        handleMessage: handleMessageFromSocket,
     };
 }
