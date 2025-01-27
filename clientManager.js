@@ -6,6 +6,8 @@ export function createClientManager(options = {}) {
     const {
         keepAliveTimeout = 30000,
         updateInterval = 5000,
+        broadcastConnect = true,
+        broadcastDisconnect = true,
         messageHandlers = {},
         onUpdate,
         onConnect: customOnConnect,
@@ -25,7 +27,7 @@ export function createClientManager(options = {}) {
 
     /**
      * Default handler for client connections.
-     * Logs the connection, broadcasts a "connected" message, and sends a welcome message.
+     * Broadcasts an optional "connected" message.
      * @param {object} client - The client object.
      */
     const defaultOnConnect = (client) => {
@@ -35,17 +37,11 @@ export function createClientManager(options = {}) {
             clientId: client.clientId,
             properties: client.properties,
         });
-
-        // Send a welcome message to the newly connected client
-        send(client, {
-            type: "message",
-            content: "Welcome to the server!",
-        });
     };
 
     /**
      * Default handler for client disconnections.
-     * Logs the disconnection and broadcasts a "disconnected" message.
+     * Broadcasts an optional "disconnected" message.
      * @param {object} client - The client object.
      */
     const defaultOnDisconnect = (client) => {
@@ -55,7 +51,6 @@ export function createClientManager(options = {}) {
         broadcast({
             type: "disconnected",
             clientId: client.clientId,
-            properties: client.properties,
         });
     };
 
@@ -101,7 +96,7 @@ export function createClientManager(options = {}) {
 
             if (client) {
                 console.log(
-                    `Reestablished new WebSocket for client with ID: ${clientId}`
+                    `Reestablished connection for client with ID: ${clientId}`
                 );
                 client.ws = ws; // Update the WebSocket
                 client.lastSeen = Date.now();
