@@ -15,7 +15,7 @@ export function createClientManager(options = {}) {
     } = options;
 
     // Maps to store clients and their metadata
-    const clients = new Map(); // Key: clientId, Value: { ws, lastSeen, properties, clientId, clientSecret }
+    const clients = new Map(); // Key: clientId, Value: { ws, lastSeen, clientId, clientSecret, accountId }
     const wsToClientId = new Map(); // Key: WebSocket, Value: clientId
     const secretToClientId = new Map();
     const dataDir = "./data/client";
@@ -32,11 +32,12 @@ export function createClientManager(options = {}) {
      */
     const defaultOnConnect = (client) => {
         // Broadcast a "connected" message to all clients
-        broadcast({
-            type: "connected",
-            clientId: client.clientId,
-            properties: client.properties,
-        });
+        if (broadcastConnect) {
+            broadcast({
+                type: "connected",
+                clientId: client.clientId,
+            });
+        }
     };
 
     /**
@@ -45,13 +46,13 @@ export function createClientManager(options = {}) {
      * @param {object} client - The client object.
      */
     const defaultOnDisconnect = (client) => {
-        console.log(`Client ${client.clientId} disconnected.`);
-
         // Broadcast a "disconnected" message to all clients
-        broadcast({
-            type: "disconnected",
-            clientId: client.clientId,
-        });
+        if (broadcastDisconnect) {
+            broadcast({
+                type: "disconnected",
+                clientId: client.clientId,
+            });
+        }
     };
 
     // Combine default and custom handlers
@@ -80,6 +81,8 @@ export function createClientManager(options = {}) {
      * @returns {object} The client object.
      */
     const resolveClient = (ws, message) => {
+        console.log("resolveClient", message);
+
         // Case 1: Already connected client
         if (wsToClientId.has(ws)) {
             const clientId = wsToClientId.get(ws);
@@ -129,7 +132,7 @@ export function createClientManager(options = {}) {
             lastSeen: Date.now(),
             clientId: generateRandomId(),
             clientSecret: generateRandomId(),
-            properties: {},
+            accountId: null, // Initialize accountId as null
         };
         console.log(`New client connected, generated ID: ${client.clientId}`);
         clients.set(client.clientId, client);
@@ -230,21 +233,29 @@ export function createClientManager(options = {}) {
     };
 
     /**
-     * Loads client data from disk if it exists.
-     * @param {string} clientSecret - The client to load.
+     * Loads client data from disk by finding the first file ending with `-${clientSecret}.json`.
+     * @param {string} clientSecret - The client secret to search for.
      * @returns {object|null} The client data if found, otherwise null.
      */
     const loadClientFromDisk = (clientSecret) => {
-        const filePath = path.join(dataDir, `client-${clientSecret}.json`);
-        if (fs.existsSync(filePath)) {
-            try {
+        try {
+            // Read all files in the data directory
+            const files = fs.readdirSync(dataDir);
+
+            // Find the first file that ends with `-${clientSecret}.json`
+            const matchingFile = files.find((file) =>
+                file.endsWith(`-${clientSecret}.json`)
+            );
+
+            if (matchingFile) {
+                const filePath = path.join(dataDir, matchingFile);
                 return JSON.parse(fs.readFileSync(filePath, "utf8"));
-            } catch (error) {
-                console.error(
-                    `Error reading client data for ${clientSecret}:`,
-                    error
-                );
             }
+        } catch (error) {
+            console.error(
+                `Error loading client data for secret ${clientSecret}:`,
+                error
+            );
         }
         return null;
     };
@@ -256,13 +267,13 @@ export function createClientManager(options = {}) {
     const persistClientToDisk = (client) => {
         const filePath = path.join(
             dataDir,
-            `client-${client.clientSecret}.json`
+            `client-${client.clientId}-${client.clientSecret}.json`
         );
         const clientData = {
             clientId: client.clientId,
             clientSecret: client.clientSecret,
             lastSeen: client.lastSeen,
-            properties: client.properties || {},
+            accountId: client.accountId, // Include accountId in persisted data
         };
         fs.writeFileSync(filePath, JSON.stringify(clientData, null, 2));
     };
