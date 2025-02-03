@@ -2,6 +2,10 @@ import fs from "fs";
 import path from "path";
 import { createSocketManager } from "./socketManager.js";
 
+const DEBUG = true;
+
+const dataDir = "./data/client";
+
 export function createClientManager(options = {}) {
     const {
         keepAliveTimeout = 30000,
@@ -18,7 +22,6 @@ export function createClientManager(options = {}) {
     const clients = new Map(); // Key: clientId, Value: { ws, lastSeen, clientId, clientSecret, accountId }
     const wsToClientId = new Map(); // Key: WebSocket, Value: clientId
     const secretToClientId = new Map();
-    const dataDir = "./data/client";
 
     // Ensure the data directory exists
     if (!fs.existsSync(dataDir)) {
@@ -81,13 +84,19 @@ export function createClientManager(options = {}) {
      * @returns {object} The client object.
      */
     const resolveClient = (ws, message) => {
-        console.log("resolveClient", message);
+        if (DEBUG) console.log("resolving Client...");
 
         // Case 1: Already connected client
         if (wsToClientId.has(ws)) {
             const clientId = wsToClientId.get(ws);
             const client = clients.get(clientId);
-            if (client) return client;
+            if (client) {
+                if (DEBUG)
+                    console.log(
+                        `Already connected client with ID: ${clientId}`
+                    );
+                return client;
+            }
         }
 
         const clientSecret = message?.clientSecret;
@@ -98,12 +107,14 @@ export function createClientManager(options = {}) {
             const client = clients.get(clientId);
 
             if (client) {
-                console.log(
-                    `Reestablished connection for client with ID: ${clientId}`
-                );
+                if (DEBUG)
+                    console.log(
+                        `Reestablished connection for client with ID: ${clientId}`
+                    );
                 client.ws = ws; // Update the WebSocket
                 client.lastSeen = Date.now();
                 wsToClientId.set(ws, clientId);
+
                 return client;
             }
         }
@@ -112,13 +123,17 @@ export function createClientManager(options = {}) {
         if (clientSecret) {
             const loadedClient = loadClientFromDisk(clientSecret);
             if (loadedClient) {
-                console.log(
-                    `Loaded client from disk with ID: ${loadedClient.clientId}`
-                );
                 const client = { ...loadedClient, ws, lastSeen: Date.now() };
                 clients.set(client.clientId, client);
                 wsToClientId.set(ws, client.clientId);
                 secretToClientId.set(client.clientSecret, client.clientId);
+
+                if (DEBUG) {
+                    console.log(
+                        `Loaded client from disk with SECRET: ${loadedClient.clientSecret}...`
+                    );
+                    console.log(client);
+                }
 
                 // Notify that the client has reconnected (loaded from disk)
                 onConnect(client);
@@ -134,7 +149,10 @@ export function createClientManager(options = {}) {
             clientSecret: generateRandomId(),
             accountId: null, // Initialize accountId as null
         };
-        console.log(`New client connected, generated ID: ${client.clientId}`);
+        if (DEBUG)
+            console.log(
+                `New client connected, generated ID: ${client.clientId}, generated Secret: ${client.clientSecret}`
+            );
         clients.set(client.clientId, client);
         wsToClientId.set(ws, client.clientId);
         secretToClientId.set(client.clientSecret, client.clientId);
@@ -233,23 +251,38 @@ export function createClientManager(options = {}) {
     };
 
     /**
-     * Loads client data from disk by finding the first file ending with `-${clientSecret}.json`.
+     * Loads client data from disk by finding the first file matching `${clientId}-${clientSecret}.json`.
      * @param {string} clientSecret - The client secret to search for.
      * @returns {object|null} The client data if found, otherwise null.
      */
     const loadClientFromDisk = (clientSecret) => {
         try {
-            // Read all files in the data directory
             const files = fs.readdirSync(dataDir);
-
-            // Find the first file that ends with `-${clientSecret}.json`
             const matchingFile = files.find((file) =>
                 file.endsWith(`-${clientSecret}.json`)
             );
 
             if (matchingFile) {
                 const filePath = path.join(dataDir, matchingFile);
-                return JSON.parse(fs.readFileSync(filePath, "utf8"));
+                const clientData = JSON.parse(
+                    fs.readFileSync(filePath, "utf8")
+                );
+                const [clientId] = matchingFile.split("-"); // Extract clientId from filename
+                if (DEBUG) {
+                    console.log(
+                        `Loading client from disk at ${matchingFile}...`
+                    );
+                    console.log({
+                        clientId,
+                        clientSecret,
+                        ...clientData,
+                    });
+                }
+                return {
+                    clientId,
+                    clientSecret,
+                    ...clientData,
+                };
             }
         } catch (error) {
             console.error(
@@ -258,24 +291,6 @@ export function createClientManager(options = {}) {
             );
         }
         return null;
-    };
-
-    /**
-     * Persists a single client's information to disk.
-     * @param {object} client - The client object.
-     */
-    const persistClientToDisk = (client) => {
-        const filePath = path.join(
-            dataDir,
-            `client-${client.clientId}-${client.clientSecret}.json`
-        );
-        const clientData = {
-            clientId: client.clientId,
-            clientSecret: client.clientSecret,
-            lastSeen: client.lastSeen,
-            accountId: client.accountId, // Include accountId in persisted data
-        };
-        fs.writeFileSync(filePath, JSON.stringify(clientData, null, 2));
     };
 
     /**
@@ -367,4 +382,20 @@ export function createClientManager(options = {}) {
             clients.forEach((client) => persistClientToDisk(client));
         },
     };
+}
+
+/**
+ * Persists a single client's information to disk.
+ * @param {object} client - The client object.
+ */
+export function persistClientToDisk(client) {
+    const filePath = path.join(
+        dataDir,
+        `${client.clientId}-${client.clientSecret}.json`
+    );
+    const clientData = {
+        lastSeen: client.lastSeen,
+        accountId: client.accountId, // Only persist necessary data
+    };
+    fs.writeFileSync(filePath, JSON.stringify(clientData, null, 2));
 }

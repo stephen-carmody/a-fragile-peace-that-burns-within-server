@@ -1,5 +1,21 @@
+// main.js
 import { createClientManager } from "./clientManager.js";
 import { resolveAccount, updateAccountName } from "./accountManager.js";
+import { createObjectManager } from "./objectManager.js";
+
+// Create the object manager with an onChange callback
+const objectManager = createObjectManager({
+    onChange: (object) => {
+        // Broadcast the updated object to all clients
+        clientManager.broadcast({
+            type: "objectUpdate",
+            object,
+        });
+    },
+});
+
+// Load all objects at startup
+objectManager.loadObjects();
 
 // Create the client manager
 const clientManager = createClientManager({
@@ -13,6 +29,15 @@ const clientManager = createClientManager({
     onConnect: (client) => {
         // Resolve or create an account for the client
         const account = resolveAccount(client);
+
+        // Resolve or create a PlayerCharacter for the account
+        const playerCharacter = objectManager.resolvePlayerCharacter(account);
+
+        // Send the initial state of the world to the client
+        clientManager.send(client, {
+            type: "worldState",
+            state: Array.from(objectManager.objects.values()),
+        });
 
         // Determine the welcome message based on the account's isNew property
         const welcomeMessage = account.isNew

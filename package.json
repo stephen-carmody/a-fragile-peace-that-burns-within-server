@@ -6,7 +6,7 @@
     "licence": "MIT",
     "type": "module",
     "scripts": {
-        "start": "npm install; node main.js"
+        "start": "npm install; node server.js"
     },
     "devDependencies": {
         "prettier": "^3.4.2"
