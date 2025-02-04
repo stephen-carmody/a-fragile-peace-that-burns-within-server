@@ -37,60 +37,27 @@ class GameServer extends EventEmitter {
     }
 
     async loadAllData() {
+        let dirPath = path.join(this.dataDir, "client");
+
         try {
-            const subdirectories = await fs.readdir(this.dataDir, {
-                withFileTypes: true,
-            });
+            let files = await fs.readdir(dirPath);
+            console.log(`Loading clients (${files.length} files)...`);
 
-            // Mapping of item types to global Maps
-            const typeMap = {
-                client: this.clients,
-                account: this.accounts,
-                object: this.objects,
-            };
-
-            for (const subdir of subdirectories) {
-                if (!subdir.isDirectory()) continue;
-                const dirPath = path.join(this.dataDir, subdir.name);
-                const files = await fs.readdir(dirPath);
-                console.log(
-                    `Loading data from ${subdir.name} (${files.length} files)...`
-                );
-
-                for (const file of files) {
-                    if (!file.endsWith(".json")) continue;
-                    const filePath = path.join(dirPath, file);
-                    const content = await fs.readFile(filePath, "utf8");
-                    const item = JSON.parse(content);
-
-                    if (!item.type) {
-                        console.warn(
-                            `Skipping ${file} due to missing type property.`
-                        );
-                        continue;
-                    }
-
-                    // Dynamically store item in the correct Map
-                    const targetMap = typeMap[item.type];
-                    if (targetMap) {
-                        targetMap.set(item.id, item);
-                        console.log(
-                            `Loaded ${item.type} (${item.id}) from ${file}`
-                        );
-                    } else {
-                        console.warn(
-                            `Unknown item type '${item.type}' in file ${file}`
-                        );
-                    }
-                }
+            for (const file of files) {
+                if (!file.endsWith(".json")) continue;
+                const filePath = path.join(dirPath, file);
+                const content = await fs.readFile(filePath, "utf8");
+                const item = JSON.parse(content);
+                this.clients.set(item.id, item);
+                console.log(`Loaded ${file}`);
             }
         } catch (err) {
-            console.error("Error loading data:", err);
+            console.log(`Loading clients (0 files)`);
         }
     }
 
     handleConnection(ws) {
-        console.log("New client connected.");
+        console.log("client connected.");
         ws.on("message", async (message) => {
             try {
                 console.log("Received message:", message.toString());
@@ -106,15 +73,17 @@ class GameServer extends EventEmitter {
         });
 
         ws.on("close", () => {
-            console.log("Client disconnected.");
+            console.log("client disconnected.");
             this.handleDisconnect(ws);
         });
     }
 
     async handleMessage(ws, message) {
         console.log("Handling message of type:", message.type);
-        const client = this.resolveClient(ws, message);
+        const client = await this.resolveClient(ws, message);
         if (!client) return;
+
+        console.log(client);
 
         client.lastSeen = Date.now();
 
@@ -140,23 +109,27 @@ class GameServer extends EventEmitter {
         await this.persist(client);
     }
 
-    resolveClient(ws, message) {
-        console.log(`Resolving Client...`);
-        let account = [...this.clients.values()].find(
-            (a) => a.id === message.clientId
+    async resolveClient(ws, message) {
+        console.log(`Resolving client...`);
+        let secret = ws.secret ? ws.secret : message.clientSecret;
+        let client = [...this.clients.values()].find(
+            (a) => a.secret === secret
         );
 
-        if (!account) {
-            console.log("No account found. Creating guest account...");
-            account = {
+        if (!client) {
+            console.log("No client found. Creating new client...");
+            client = {
                 id: this.generateId(),
-                type: "account",
-                name: `Guest-${this.generateId()}`,
-                clientIds: [client.id],
+                secret: this.generateId(),
+                type: "client",
+                accountId: null,
             };
-            this.accounts.set(account.id, account);
-            await this.persist(account);
+            await this.persist(client);
         }
+
+        console.log(client);
+
+        return client;
     }
 
     async handleLogin(client, message) {
@@ -233,6 +206,10 @@ class GameServer extends EventEmitter {
         await fs.mkdir(dirPath, { recursive: true });
         const filename = path.join(dirPath, `${item.id}.json`);
         await fs.writeFile(filename, JSON.stringify(item, null, 2));
+    }
+
+    generateId() {
+        return Math.random().toString(36).substring(2, 15);
     }
 }
 
