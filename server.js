@@ -39,13 +39,13 @@ class GameServer extends EventEmitter {
         let dirPath = path.join(this.dataDir, "world");
 
         try {
-            let files = await fs.readdir(dirPath);
+            let files = await fs.promises.readdir(dirPath);
             console.log(`Loading objects (${files.length} files)...`);
 
             for (const file of files) {
                 if (!file.endsWith(".json")) continue;
                 const filePath = path.join(dirPath, file);
-                const content = await fs.readFile(filePath, "utf8");
+                const content = await fs.promises.readFile(filePath, "utf8");
                 const item = JSON.parse(content);
                 this.objects.set(item.id, item);
                 console.log(`Loaded ${file}`);
@@ -60,8 +60,13 @@ class GameServer extends EventEmitter {
         ws.on("message", async (message) => {
             try {
                 console.log("Received message:", message.toString());
-                const data = JSON.parse(message.toString());
-                await this.handleMessage(ws, data);
+                message
+                    .toString()
+                    .split("\n")
+                    .forEach((message) => {
+                        const data = JSON.parse(message.toString());
+                        this.handleMessage(ws, data);
+                    });
             } catch (err) {
                 console.error("Error processing message:", err);
             }
