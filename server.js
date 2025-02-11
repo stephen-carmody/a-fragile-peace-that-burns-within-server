@@ -22,6 +22,7 @@ class GameServer extends EventEmitter {
         this.init();
     }
 
+
     async init() {
         console.log("Loading persisted World...");
         await this.loadWorld();
@@ -251,6 +252,8 @@ const server = new GameServer({
     port: 8080,
     keepAliveTimeout: 30000,
 });
+
+server.generateId;
 
 server.on("action", ({ client, account, action }) => {
     console.log(`${account.name} performed action: ${action}`);
