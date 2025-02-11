@@ -10,6 +10,7 @@ class GameServer extends EventEmitter {
         this.dataDir = options.dataDir || "./data";
         this.keepAliveTimeout = options.keepAliveTimeout || 30000;
 
+
         // Core state
         this.clients = new Map();
         this.clientBySecret = new Map();
@@ -110,7 +111,7 @@ class GameServer extends EventEmitter {
                             client = JSON.parse(content);
                             console.log(`Loaded client from disk`);
                         }
-                    } catch (err) {}
+                    } catch (err) { }
                 }
             }
             if (!client) {
@@ -254,3 +255,4 @@ const server = new GameServer({
 server.on("action", ({ client, account, action }) => {
     console.log(`${account.name} performed action: ${action}`);
 });
+
