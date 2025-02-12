@@ -10,7 +10,6 @@ class GameServer extends EventEmitter {
         this.dataDir = options.dataDir || "./data";
         this.keepAliveTimeout = options.keepAliveTimeout || 30000;
 
-
         // Core state
         this.clients = new Map();
         this.clientBySecret = new Map();
@@ -133,6 +132,10 @@ class GameServer extends EventEmitter {
 
             initResponse.clientId = client.id;
             this.send(client, initResponse);
+
+            if (!initResponse.rejoin) {
+                this.send(client, { type: "message", channel: "global", content: `Welcome${initResponse.clientSecret ? '' : " back"}!` });
+            }
         }
 
         if (!client && ws.secret) client = this.clientBySecret.get(ws.secret);
