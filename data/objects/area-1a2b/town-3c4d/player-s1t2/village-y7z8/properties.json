@@ -1,0 +1,15 @@
+{
+  "name": "Willowbrook",
+  "quality": 1,
+  "damage": "0.00",
+  "weight": 1200.5,
+  "streamJSON": {
+    "o": "village-y7z8-1a2b",
+    "p": {
+      "name": "Willowbrook",
+      "quality": 1,
+      "damage": "0.00",
+      "weight": 1200.5
+    }
+  }
+}

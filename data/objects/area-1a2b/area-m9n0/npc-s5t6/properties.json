@@ -1,0 +1,15 @@
+{
+  "name": "Lost Scholar",
+  "quality": 0.85,
+  "damage": 0.15,
+  "weight": 80,
+  "streamJSON": {
+    "o": "npc-s5t6-m9n0",
+    "p": {
+      "name": "Lost Scholar",
+      "quality": 0.85,
+      "damage": 0.15,
+      "weight": 80
+    }
+  }
+}

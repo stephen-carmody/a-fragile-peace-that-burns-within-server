@@ -1,0 +1,15 @@
+{
+  "name": "Sir Alden, Level 10 Knight",
+  "quality": 0.92,
+  "damage": 0.08,
+  "weight": 104,
+  "streamJSON": {
+    "o": "player-s1t2-3c4d",
+    "p": {
+      "name": "Sir Alden, Level 10 Knight",
+      "quality": 0.92,
+      "damage": 0.08,
+      "weight": 104
+    }
+  }
+}

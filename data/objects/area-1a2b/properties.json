@@ -1,0 +1,15 @@
+{
+  "name": "Kingdom of Eldoria",
+  "quality": 1,
+  "damage": "0.00",
+  "weight": 51179.5,
+  "streamJSON": {
+    "o": "area-1a2b",
+    "p": {
+      "name": "Kingdom of Eldoria",
+      "quality": 1,
+      "damage": "0.00",
+      "weight": 51179.5
+    }
+  }
+}

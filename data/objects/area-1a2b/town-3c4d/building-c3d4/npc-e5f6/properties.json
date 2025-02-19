@@ -1,0 +1,15 @@
+{
+  "name": "Barkeep Elsa",
+  "quality": 0.85,
+  "damage": 0.05,
+  "weight": 75,
+  "streamJSON": {
+    "o": "npc-e5f6-c3d4",
+    "p": {
+      "name": "Barkeep Elsa",
+      "quality": 0.85,
+      "damage": 0.05,
+      "weight": 75
+    }
+  }
+}

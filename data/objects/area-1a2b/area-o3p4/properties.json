@@ -1,0 +1,15 @@
+{
+  "name": "Darkwood Forest",
+  "quality": 1,
+  "damage": "0.00",
+  "weight": 19660,
+  "streamJSON": {
+    "o": "area-o3p4-1a2b",
+    "p": {
+      "name": "Darkwood Forest",
+      "quality": 1,
+      "damage": "0.00",
+      "weight": 19660
+    }
+  }
+}

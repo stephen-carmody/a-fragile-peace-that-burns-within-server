@@ -1,0 +1,15 @@
+{
+  "name": "Crystal Stream",
+  "quality": 1,
+  "damage": "0.00",
+  "weight": 1,
+  "streamJSON": {
+    "o": "stream-i3j4-c7d8",
+    "p": {
+      "name": "Crystal Stream",
+      "quality": 1,
+      "damage": "0.00",
+      "weight": 1
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Tavern - The Rusty Tankard",
+  "quality": 0.8,
+  "damage": 0.2,
+  "weight": 250,
+  "streamJSON": {
+    "o": "building-c3d4-3c4d",
+    "p": {
+      "name": "Tavern - The Rusty Tankard",
+      "quality": 0.8,
+      "damage": 0.2,
+      "weight": 250
+    }
+  }
+}

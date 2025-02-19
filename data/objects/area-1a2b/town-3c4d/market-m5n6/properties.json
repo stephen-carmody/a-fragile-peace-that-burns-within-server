@@ -1,0 +1,15 @@
+{
+  "name": "Market Square",
+  "quality": 0.9,
+  "damage": 0.1,
+  "weight": 225,
+  "streamJSON": {
+    "o": "market-m5n6-3c4d",
+    "p": {
+      "name": "Market Square",
+      "quality": 0.9,
+      "damage": 0.1,
+      "weight": 225
+    }
+  }
+}

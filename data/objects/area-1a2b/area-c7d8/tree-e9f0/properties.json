@@ -1,0 +1,15 @@
+{
+  "name": "Valley Oak Tree",
+  "quality": 0.88,
+  "damage": 0.12,
+  "weight": 4500,
+  "streamJSON": {
+    "o": "tree-e9f0-c7d8",
+    "p": {
+      "name": "Valley Oak Tree",
+      "quality": 0.88,
+      "damage": 0.12,
+      "weight": 4500
+    }
+  }
+}

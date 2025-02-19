@@ -1,0 +1,15 @@
+{
+  "name": "Ghostly Knight",
+  "quality": 0.65,
+  "damage": 0.35,
+  "weight": "0.00",
+  "streamJSON": {
+    "o": "creature-q3r4-m9n0",
+    "p": {
+      "name": "Ghostly Knight",
+      "quality": 0.65,
+      "damage": 0.35,
+      "weight": "0.00"
+    }
+  }
+}

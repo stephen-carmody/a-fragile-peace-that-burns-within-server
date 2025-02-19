@@ -1,0 +1,15 @@
+{
+  "name": "Anvil",
+  "quality": 0.9,
+  "damage": 0.1,
+  "weight": 250,
+  "streamJSON": {
+    "o": "anvil-9i0j-5e6f",
+    "p": {
+      "name": "Anvil",
+      "quality": 0.9,
+      "damage": 0.1,
+      "weight": 250
+    }
+  }
+}

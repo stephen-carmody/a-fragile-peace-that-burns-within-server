@@ -1,0 +1,15 @@
+{
+  "name": "Stonehaven",
+  "quality": 1,
+  "damage": "0.00",
+  "weight": 3203.5,
+  "streamJSON": {
+    "o": "town-3c4d-1a2b",
+    "p": {
+      "name": "Stonehaven",
+      "quality": 1,
+      "damage": "0.00",
+      "weight": 3203.5
+    }
+  }
+}

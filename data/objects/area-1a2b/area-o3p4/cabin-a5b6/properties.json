@@ -1,0 +1,15 @@
+{
+  "name": "Abandoned Cabin",
+  "quality": 0.5,
+  "damage": 0.5,
+  "weight": 12000,
+  "streamJSON": {
+    "o": "cabin-a5b6-o3p4",
+    "p": {
+      "name": "Abandoned Cabin",
+      "quality": 0.5,
+      "damage": 0.5,
+      "weight": 12000
+    }
+  }
+}

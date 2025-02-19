@@ -1,6 +1,7 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { EventEmitter } from "events";
 import fs from "fs";
+import readline from "readline";
 import path from "path";
 
 class GameServer extends EventEmitter {
@@ -199,7 +200,6 @@ let rootObject;
 const server = new GameServer({ port: 8080, keepAliveTimeout: 30000 });
 
 console.log("Loading persisted World...");
-await loadObjects();
 
 async function loadObjects(
     parent = null,
@@ -250,6 +250,54 @@ async function loadObjects(
 
     for (const dirPath of contents) await loadObjects(object, dirPath);
 }
+
+// Function to parse a line into an object
+function parseLine(line, parentStack) {
+    console.log(line);
+    const indentLevel = (line.match(/\│/g) || []).length;
+    const match = line.match(/(\w+)-(\w+) \(([^)]+)\) \{([^}]+)\}/);
+
+    if (!match) return null;
+
+    const [, type, id, name, propertiesStr] = match;
+    const properties = Object.fromEntries(
+        propertiesStr.split(", ").map((prop) => {
+            const [key, value] = prop.split(": ");
+            return [key, parseFloat(value) || value];
+        })
+    );
+
+    const object = { id, type, name, ...properties, parent: null, contents: [] };
+
+    if (indentLevel > 0) {
+        const parent = parentStack[indentLevel - 1];
+        if (parent) {
+            object.parent = parent.id;
+            parent.contents.push(id);
+        }
+    } else {
+        rootObject = object;
+    }
+
+    parentStack[indentLevel] = object;
+    objects.set(id, object);
+    updateObjectStreamJSON(object);
+    server.usedIds.set(id, null);
+}
+
+// Function to parse a file line by line
+async function parseFile(filePath) {
+    const fileStream = fs.createReadStream(filePath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+
+    const parentStack = [];
+
+    for await (const line of rl) {
+        parseLine(line.trim(), parentStack);
+    }
+}
+
+await parseFile(path.join(server.dataDir, "objects.txt"));
 
 console.log(`Loaded ${objects.size} objects`);
 
