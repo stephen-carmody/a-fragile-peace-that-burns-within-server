@@ -201,7 +201,10 @@ const server = new GameServer({ port: 8080, keepAliveTimeout: 30000 });
 console.log("Loading persisted World...");
 await loadObjects();
 
-async function loadObjects(parent = null, dirPath = path.join(server.dataDir, "objects")) {
+async function loadObjects(
+    parent = null,
+    dirPath = path.join(server.dataDir, "objects")
+) {
     const dirName = path.basename(dirPath);
 
     let object;
@@ -211,7 +214,7 @@ async function loadObjects(parent = null, dirPath = path.join(server.dataDir, "o
             type: dirName.substring(0, sep),
             id: dirName.substring(sep + 1, dirName.length),
             parent: null,
-            contents: []
+            contents: [],
         };
     }
 
@@ -265,8 +268,8 @@ function persistObject(object, dirPath) {
 
 function updateObjectStreamJSON(object) {
     object.streamJSON = {
-        o:`${object.type}-${object.id}`,
-        p: {}
+        o: `${object.type}-${object.id}`,
+        p: {},
     };
     Object.assign(object.streamJSON.p, object);
     delete object.streamJSON.p.type;
@@ -281,7 +284,7 @@ function updateObjectStreamJSON(object) {
 function exitHandler(options, exitCode) {
     if (options.cleanup) {
         const objectsDir = path.join(server.dataDir, "objects");
-        const tmpDir = path.join(server.dataDir, "tmp")
+        const tmpDir = path.join(server.dataDir, "tmp");
         persistObject(rootObject, tmpDir);
         fs.rmSync(objectsDir, { recursive: true, force: true });
         fs.renameSync(tmpDir, objectsDir);
@@ -292,19 +295,17 @@ function exitHandler(options, exitCode) {
 }
 
 // do something when app is closing
-process.on('exit', exitHandler.bind(null,{cleanup:true}));
+process.on("exit", exitHandler.bind(null, { cleanup: true }));
 
 // catches ctrl+c event
-process.on('SIGINT', exitHandler.bind(null, {exit:true}));
+process.on("SIGINT", exitHandler.bind(null, { exit: true }));
 
 // catches "kill pid" (for example: nodemon restart)
-process.on('SIGUSR1', exitHandler.bind(null, {exit:true}));
-process.on('SIGUSR2', exitHandler.bind(null, {exit:true}));
+process.on("SIGUSR1", exitHandler.bind(null, { exit: true }));
+process.on("SIGUSR2", exitHandler.bind(null, { exit: true }));
 
 // catches uncaught exceptions
-process.on('uncaughtException', exitHandler.bind(null, {exit:true}));
-
-
+process.on("uncaughtException", exitHandler.bind(null, { exit: true }));
 
 server.on("connected", ({ client, isNew, isRejoin }) => {
     if (!isRejoin) {
