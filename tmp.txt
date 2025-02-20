@@ -1,0 +1,45 @@
+world-8m2h () {quality: 1.00, damage: 0.00, weight: 51179.50}
+├ area-1a2b (Kingdom of Eldoria) {quality: 1.00, damage: 0.00, weight: 51179.50}
+│ ├ town-3c4d (Stonehaven) {quality: 1.00, damage: 0.00, weight: 3203.50}
+│ │ ├ building-5e6f (Blacksmith) {quality: 0.85, damage: 0.15, weight: 755.00}
+│ │ │ ├ npc-7g8h (Blacksmith Gregor) {quality: 0.80, damage: 0.10, weight: 90.00}
+│ │ │ ├ anvil-9i0j (Anvil) {quality: 0.90, damage: 0.10, weight: 250.00}
+│ │ │ ├ forge-a1b2 (Forge) {quality: 0.95, damage: 0.05, weight: 500.00}
+│ │ ├ building-c3d4 (Tavern - The Rusty Tankard) {quality: 0.80, damage: 0.20, weight: 250.00}
+│ │ │ ├ npc-e5f6 (Barkeep Elsa) {quality: 0.85, damage: 0.05, weight: 75.00}
+│ │ │ ├ npc-g7h8 (Drunken Sailor) {quality: 0.60, damage: 0.30, weight: 85.00}
+│ │ │ ├ barrel-i9j0 (Barrel of Ale) {quality: 0.80, damage: 0.05, weight: 30.00}
+│ │ ├ well-k1l2 (Stonehaven Well) {quality: 0.85, damage: 0.15, weight: 1001.00}
+│ │ │ ├ water-m3n4 (Water) {quality: 1.00, damage: 0.00, weight: 1.00}
+│ │ ├ market-m5n6 (Market Square) {quality: 0.90, damage: 0.10, weight: 225.00}
+│ │ │ ├ npc-o7p8 (Merchant Elric) {quality: 0.85, damage: 0.05, weight: 80.00}
+│ │ │ ├ cart-q9r0 (Cart of Produce) {quality: 0.75, damage: 0.20, weight: 150.00}
+│ │ ├ player-s1t2 (Sir Alden, Level 10 Knight) {quality: 0.92, damage: 0.08, weight: 104.00}
+│ │ │ ├ sword-u3v4 (Sword of Valor) {quality: 0.95, damage: 0.05, weight: 5.00}
+│ │ │ ├ shield-w5x6 (Steel Shield) {quality: 0.90, damage: 0.10, weight: 8.00}
+│ │ │ ├ armor-y7z8 (Knight’s Armor) {quality: 0.88, damage: 0.12, weight: 40.00}
+│ │ │ ├ backpack-a9b0 (Backpack) {quality: 0.80, damage: 0.10, weight: 3.00}
+│ ├ village-y7z8 (Willowbrook) {quality: 1.00, damage: 0.00, weight: 1200.50}
+│ │ ├ building-a9b0 (Hearth & Home Inn) {quality: 0.85, damage: 0.10, weight: 600.00}
+│ │ ├ well-c1d2 (Willowbrook Well) {quality: 0.75, damage: 0.25, weight: 901.00}
+│ │ │ ├ water-e3f4 (Water) {quality: 0.90, damage: 0.00, weight: 1.00}
+│ │ ├ npc-g5h6 (Village Elder) {quality: 0.90, damage: 0.05, weight: 80.00}
+│ │ ├ player-i7j8 (Elara, Level 8 Mage) {quality: 0.88, damage: 0.07, weight: 58.50}
+│ │ │ ├ staff-k9l0 (Arcane Staff) {quality: 0.88, damage: 0.07, weight: 3.00}
+│ │ │ ├ spellbook-m1n2 (Spellbook) {quality: 0.92, damage: 0.03, weight: 1.50}
+│ ├ area-o3p4 (Darkwood Forest) {quality: 1.00, damage: 0.00, weight: 19660.00}
+│ │ ├ tree-q5r6 (Ancient Oak) {quality: 0.90, damage: 0.10, weight: 5000.00}
+│ │ │ ├ creature-s7t8 (Great Owl) {quality: 0.85, damage: 0.05, weight: 8.00}
+│ │ ├ tree-u9v0 (Tall Pine Tree) {quality: 0.85, damage: 0.15, weight: 4000.00}
+│ │ ├ npc-w1x2 (Hermit Darius) {quality: 0.80, damage: 0.20, weight: 70.00}
+│ │ ├ creature-y3z4 (Pack of Wolves) {quality: 0.75, damage: 0.25, weight: 400.00}
+│ │ ├ cabin-a5b6 (Abandoned Cabin) {quality: 0.50, damage: 0.50, weight: 12000.00}
+│ ├ area-c7d8 (Misty Valley) {quality: 1.00, damage: 0.00, weight: 8701.00}
+│ │ ├ tree-e9f0 (Valley Oak Tree) {quality: 0.88, damage: 0.12, weight: 4500.00}
+│ │ ├ tree-g1h2 (Meadow Pine Tree) {quality: 0.80, damage: 0.20, weight: 4200.00}
+│ │ ├ stream-i3j4 (Crystal Stream) {quality: 1.00, damage: 0.00, weight: 1.00}
+│ │ │ ├ water-k5l6 (Water) {quality: 1.00, damage: 0.00, weight: 1.00}
+│ ├ area-m9n0 (Cursed Ruins) {quality: 1.00, damage: 0.00, weight: 8439.00}
+│ │ ├ tower-o1p2 (Crumbling Tower) {quality: 0.40, damage: 0.80, weight: 25000.00}
+│ │ ├ creature-q3r4 (Ghostly Knight) {quality: 0.65, damage: 0.35, weight: 0.00}
+│ │ ├ npc-s5t6 (Lost Scholar) {quality: 0.85, damage: 0.15, weight: 80.00}
