@@ -1,321 +1,3 @@
-//import WebSocket, { WebSocketServer } from "ws";
-//import { EventEmitter } from "events";
-//import fs from "fs";
-//import readline from "readline";
-//import path from "path";
-//
-//class GameServer extends EventEmitter {
-//    constructor(options = {}) {
-//        super();
-//        this.port = options.port || 8080;
-//        this.dataDir = options.dataDir || "./data";
-//        this.keepAliveTimeout = options.keepAliveTimeout || 30000;
-//
-//        // Core state
-//        this.usedIds = new Map();
-//        this.clients = new Map();
-//        this.clientBySecret = new Map();
-//        this.wsByClient = new Map();
-//        this.bufferByClient = new Map();
-//
-//        (async () => {
-//            console.log("Initialising game server...");
-//
-//            let dirPath = path.join(this.dataDir, "client");
-//            try {
-//                let files = await fs.promises.readdir(dirPath);
-//                for (const file of files) {
-//                    if (!file.endsWith(".json")) continue;
-//                    const filePath = path.join(dirPath, file);
-//                    const content = await fs.promises.readFile(filePath, "utf8");
-//                    const item = JSON.parse(content);
-//                    this.usedIds.set(item.id);
-//                }
-//            } catch (err) {
-//                if (err.code !== "ENOENT") console.log(err);
-//            }
-//
-//            this.wss = new WebSocketServer({ port: this.port });
-//            this.wss.on("connection", this.handleConnection.bind(this));
-//
-//            setInterval(() => {
-//                const now = Date.now();
-//                for (const [id, client] of this.clients) {
-//                    if (now - client.lastSeen > this.keepAliveTimeout) {
-//                        return this.handleInactiveClient(client);
-//                    }
-//                    const ws = this.wsByClient.get(client);
-//                    const buffer = this.bufferByClient.get(client);
-//                    if (ws.readyState === WebSocket.OPEN && buffer.length) {
-//                        this.bufferByClient.set(client, []);
-//                        const messages = buffer.join("\n");
-//                        console.log(`Sending Client ${client.id} -> `, messages);
-//                        ws.send(messages);
-//                    }
-//                }
-//            }, 2000);
-//
-//            console.log(`Game server running on port ${this.port}`);
-//        })();
-//    }
-//
-//    async handleConnection(ws) {
-//        console.log("WebSocket connected.");
-//        ws.on("message", async (data) => {
-//            try {
-//                const msg = data.toString();
-//                console.log("Received message:", msg);
-//                msg.split("\n").forEach(
-//                    async (msg) => await this.handleMessage(ws, JSON.parse(msg))
-//                );
-//            } catch (err) {
-//                console.error("Error processing message:", err);
-//            }
-//        });
-//
-//        ws.on("close", () => {
-//            console.log("WebSocket disconnected.");
-//            this.handleDisconnect(ws);
-//        });
-//    }
-//
-//    async handleMessage(ws, message) {
-//        let client;
-//
-//        if (message.type === "init") client = await this.handleInit(ws, message);
-//        if (!client && ws.secret) client = this.clientBySecret.get(ws.secret);
-//        if (!client) {
-//            console.error("Unable to resolve Client, aborting message processing.");
-//            return;
-//        }
-//
-//        client.lastSeen = Date.now();
-//
-//        this.emit(message.type, message);
-//    }
-//
-//    async handleInit(ws, message) {
-//        let client;
-//
-//        let initResponse = {
-//            type: "init",
-//            keepAliveTimeout: this.keepAliveTimeout,
-//        };
-//
-//        if (message.clientSecret) {
-//            client = this.clientBySecret.get(message.clientSecret);
-//            if (client) {
-//                initResponse.rejoin = true;
-//            } else {
-//                let dirPath = path.join(this.dataDir, "client");
-//                try {
-//                    const matchingFile = (await fs.promises.readdir(dirPath)).find(
-//                        (file) => file.endsWith(`-${message.clientSecret}.json`)
-//                    );
-//
-//                    if (matchingFile) {
-//                        const filePath = path.join(dirPath, matchingFile);
-//                        const content = await fs.promises.readFile(filePath, "utf8");
-//                        client = JSON.parse(content);
-//                        console.log(`Loaded client from disk`);
-//                    }
-//                } catch (err) {
-//                    if (err.code !== "ENOENT") console.log(err);
-//                }
-//            }
-//        }
-//
-//        if (!client) {
-//            console.log("Creating new client");
-//            client = {
-//                id: await this.generateId(),
-//                secret: await this.generateId(),
-//            };
-//            this.persistClient(client);
-//            initResponse.clientSecret = client.secret;
-//        }
-//
-//        if (!this.bufferByClient.has(client)) this.bufferByClient.set(client, []);
-//
-//        this.clients.set(client.id, client);
-//        this.clientBySecret.set(client.secret, client);
-//        this.wsByClient.set(client, ws);
-//        ws.secret = client.secret;
-//
-//        initResponse.clientId = client.id;
-//        this.send(client, initResponse);
-//
-//        this.emit("connected", {
-//            client,
-//            isNew: initResponse.clientSecret ? true : false,
-//            isRejoin: initResponse.rejoin ? true : false,
-//        });
-//
-//        return client;
-//    }
-//
-//    handleDisconnect(ws) {
-//        console.log("Handling disconnect...");
-//        const client = this.clientBySecret.get(ws.secret);
-//        if (client) {
-//            console.log(`Client ${client.id} disconnected.`);
-//            this.emit("clientDisconnect", client);
-//        }
-//    }
-//
-//    handleInactiveClient(client) {
-//        console.log(`Removing inactive client: ${client.id}`);
-//        const ws = this.wsByClient.get(client);
-//        if (ws && ws.readyState === WebSocket.OPEN) ws.close();
-//        this.clients.delete(client.id);
-//        this.clientBySecret.delete(client.secret);
-//        this.wsByClient.delete(client);
-//        this.bufferByClient.delete(client);
-//    }
-//
-//    send(client, message) {
-//        this.bufferByClient.get(client).push(JSON.stringify(message));
-//    }
-//
-//    async persistClient(item) {
-//        console.log(`Persisting client with ID: ${item.id}`);
-//        const dirPath = path.join(this.dataDir, "client");
-//        await fs.promises.mkdir(dirPath, { recursive: true });
-//        const filename = path.join(dirPath, `${item.id}-${item.secret}.json`);
-//        fs.promises.writeFile(filename, JSON.stringify(item, null, 2));
-//    }
-//
-//    async generateId() {
-//        let id;
-//        while (!id || this.usedIds.has(id))
-//            id = Math.random().toString(36).substring(2, 6);
-//        this.usedIds.set(id, null);
-//        return id;
-//    }
-//}
-//
-//const objects = new Map();
-//let rootObject;
-//
-//const server = new GameServer({ port: 8080, keepAliveTimeout: 30000 });
-//
-//console.log("Loading persisted World...");
-//
-//// Function to parse a line into an object
-//function parseLine(line, parentStack) {
-//    console.log(line);
-//    const indentLevel = (line.match(/\│/g) || []).length;
-//    const match = line.match(/(\w+)-(\w+) \(([^)]+)\) \{([^}]+)\}/);
-//
-//    if (!match) return null;
-//
-//    const [, type, id, name, propertiesStr] = match;
-//    const properties = Object.fromEntries(
-//        propertiesStr.split(", ").map((prop) => {
-//            const [key, value] = prop.split(": ");
-//            return [key, parseFloat(value) || value];
-//        })
-//    );
-//
-//    const object = { id, type, name, ...properties, parent: null, contents: [] };
-//
-//    if (indentLevel > 0) {
-//        const parent = parentStack[indentLevel - 1];
-//        if (parent) {
-//            object.parent = parent.id;
-//            parent.contents.push(id);
-//        }
-//    } else {
-//        rootObject = object;
-//    }
-//
-//    parentStack[indentLevel] = object;
-//    objects.set(id, object);
-//    updateObjectStreamJSON(object);
-//    server.usedIds.set(id, null);
-//}
-//
-//// Function to parse a file line by line
-//async function parseFile(filePath) {
-//    const fileStream = fs.createReadStream(filePath);
-//    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-//
-//    const parentStack = [];
-//
-//    for await (const line of rl) {
-//        parseLine(line.trim(), parentStack);
-//    }
-//}
-//
-//await parseFile(path.join(server.dataDir, "objects.txt"));
-//
-//console.log(`Loaded ${objects.size} objects`);
-//
-//function persistObject(object, dirPath) {
-//    dirPath = path.join(dirPath, `${object.type}-${object.id}`);
-//    fs.mkdirSync(dirPath, { recursive: true });
-//    const properties = Object.assign({}, object);
-//    delete properties.type;
-//    delete properties.id;
-//    delete properties.parent;
-//    delete properties.contents;
-//    const filePath = path.join(dirPath, "properties.json");
-//    fs.writeFileSync(filePath, JSON.stringify(properties, null, 2));
-//    for (const id of object.contents) persistObject(objects.get(id), dirPath);
-//}
-//
-//function updateObjectStreamJSON(object) {
-//    object.streamJSON = {
-//        o: `${object.type}-${object.id}`,
-//        p: {},
-//    };
-//    Object.assign(object.streamJSON.p, object);
-//    delete object.streamJSON.p.type;
-//    delete object.streamJSON.p.id;
-//    delete object.streamJSON.p.parent;
-//    delete object.streamJSON.p.contents;
-//    delete object.streamJSON.p.streamJSON;
-//
-//    if (object.parent) object.streamJSON.o += `-${object.parent}`;
-//}
-//
-//function exitHandler(options, exitCode) {
-//    if (options.cleanup) {
-//        const objectsDir = path.join(server.dataDir, "objects");
-//        const tmpDir = path.join(server.dataDir, "tmp");
-//        persistObject(rootObject, tmpDir);
-//        fs.rmSync(objectsDir, { recursive: true, force: true });
-//        fs.renameSync(tmpDir, objectsDir);
-//        console.log(`Persisted ${objects.size} objects to disk`);
-//    }
-//    if (exitCode || exitCode === 0) console.log(exitCode);
-//    if (options.exit) process.exit();
-//}
-//
-//// do something when app is closing
-//process.on("exit", exitHandler.bind(null, { cleanup: true }));
-//
-//// catches ctrl+c event
-//process.on("SIGINT", exitHandler.bind(null, { exit: true }));
-//
-//// catches "kill pid" (for example: nodemon restart)
-//process.on("SIGUSR1", exitHandler.bind(null, { exit: true }));
-//process.on("SIGUSR2", exitHandler.bind(null, { exit: true }));
-//
-//// catches uncaught exceptions
-//process.on("uncaughtException", exitHandler.bind(null, { exit: true }));
-//
-//server.on("connected", ({ client, isNew, isRejoin }) => {
-//    if (!isRejoin) {
-//        server.send(client, {
-//            type: "message",
-//            channel: "global",
-//            content: `Welcome${isNew ? "" : " back"} ${client.id}!`,
-//        });
-//    }
-//    for (const [id, object] of objects) server.send(client, object.streamJSON);
-//});
-
 import WebSocket, { WebSocketServer } from "ws";
 import { EventEmitter } from "events";
 import fs from "fs";
@@ -325,26 +7,295 @@ import path from "path";
 const events = new EventEmitter();
 const config = { port: 8080, dataDir: "./data", keepAliveTimeout: 30000 };
 
+config.dataObjectsPath = path.join(config.dataDir, "objects.txt");
+
 const state = {
     id_object: new Map(),
-    id_parentId: new Map(),
-    id_contentIds: new Map(),
-    id_buffer: new Map(),
+    id_children: new Map(),
+    id_sendbuffer: new Map(),
     id_dirty: new Map(),
     root: null,
-    secret_object: new Map(),
-    secret_object_connected: new Map(),
+    clients: null,
+    world: null,
+    id_snapshot: new Map(),
+    player_spawn: null,
+    secret_client: new Map(),
+    secret_client_connected: new Map(),
     id_ws: new Map(),
+    save_on_exit: false,
 };
 
 async function initialise() {
-    console.log("Initializing game server...");
+    console.log("Initialising game server...");
     await loadData();
-    await saveData();
+    maintenance();
     const wss = new WebSocketServer({ port: config.port });
     wss.on("connection", handleConnection);
-    //startMaintenance();
+    setInterval(maintenance, 2000);
     console.log(`Game server running on port ${config.port}`);
+}
+
+async function loadData() {
+    const filePath = path.join(config.dataDir, "objects.txt");
+    const fileStream = fs.createReadStream(config.dataObjectsPath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    const parentStack = [];
+
+    // Clear object state
+    state.id_object.clear();
+    state.id_children.clear();
+    state.id_sendbuffer.clear();
+    state.id_dirty.clear();
+    state.root = null;
+
+    // Disable save on exit to avoid corrupting data on failed read
+    state.save_on_exit = false;
+
+    for await (let line of rl) {
+        line = line.trim();
+        const indentLevel = (line.match(/(│|├)/g) || []).length;
+        const match = line.match(
+            /(\w+)-(\w+) \(([^)]*)\) \[([^,]+),([^,]+),([^\]]+)\] ([^\}]+\})/
+        );
+
+        if (!match) throw new Error(`failed to parse line:\n${line}`);
+
+        console.log(line);
+
+        const [, type, id, name, quality, damage, weight, rest] = match;
+        const parent = parentStack[indentLevel - 1];
+        const obj = createObject({
+            id,
+            type,
+            name,
+            parent_id: parent?.id,
+            quality: parseFloat(quality),
+            damage: parseFloat(damage),
+            weight: parseFloat(weight),
+            ...JSON.parse(rest),
+        });
+        parentStack[indentLevel] = obj;
+        if (obj.type === "client") state.secret_client.set(obj.secret, obj);
+
+        if (obj.player_spawn) state.player_spawn = obj;
+    }
+
+    // Enable save on exit now we have finished loading successfully
+    state.save_on_exit = true;
+
+    console.log(`${state.id_object.size} objects loaded`);
+}
+
+async function saveData() {
+    let buffer = "";
+
+    function writeObject(id, indentLevel = 0) {
+        const obj = state.id_object.get(id);
+        if (!obj) return;
+
+        let indent = "│".repeat(indentLevel);
+        if (indent.length > 0) indent = `${indent.substring(0, indent.length - 1)}├ `;
+        const common_properties = [obj.quality, obj.damage, obj.weight];
+        const rest = Object.assign({}, obj);
+        for (const property of [
+            "id",
+            "type",
+            "name",
+            "parent_id",
+            "quality",
+            "damage",
+            "weight",
+        ])
+            delete rest[property];
+
+        buffer += `${indent}${obj.type}-${obj.id} (${obj.name}) [${common_properties}] ${JSON.stringify(rest)}
+`;
+
+        const children = state.id_children.get(id) || [];
+        for (const childId of children) {
+            writeObject(childId, indentLevel + 1);
+        }
+    }
+
+    if (state.root) writeObject(state.root.id);
+
+    const tmpPath = path.join(config.dataDir, "objects.tmp");
+    fs.writeFileSync(tmpPath, buffer);
+    fs.rmSync(config.dataObjectsPath, { force: true });
+    fs.renameSync(tmpPath, config.dataObjectsPath);
+
+    console.log(`${buffer.split("\n").length} objects saved`);
+}
+
+function generateId() {
+    let id;
+    while (!id || state.id_object.has(id))
+        id = Math.random().toString(36).substring(2, 6);
+    return id;
+}
+
+function createObject({
+    id = generateId(),
+    type = "undefined",
+    name = "",
+    parent_id = null,
+    quality = 1,
+    damage = 0,
+    weight = 0,
+    ...rest
+}) {
+    if (state.id_object.has(id)) {
+        throw new Error(`Object id "${id}" not unique`);
+    }
+
+    const obj = {
+        id,
+        type,
+        name,
+        quality,
+        damage,
+        weight,
+        ...rest,
+    };
+
+    if (type === "root") {
+        if (state.root) throw new Error("Root object already exists");
+        parent_id = null;
+        state.root = obj;
+    } else if (type === "clients") {
+        if (state.clients) throw new Error("Clients object already exists");
+        state.clients = obj;
+    } else if (type === "client") {
+        parent_id = state.clients.id;
+    } else if (type === "world") {
+        if (state.world) throw new Error("World object already exists");
+        parent_id = state.root.id;
+        state.world = obj;
+        state.id_dirty.set(id, obj);
+    } else {
+        if (!parent_id) parent_id = state.world;
+        state.id_dirty.set(id, obj);
+    }
+
+    if (parent_id) {
+        obj.parent_id = parent_id;
+        state.id_children.set(parent_id, [
+            ...(state.id_children.get(parent_id) || []),
+            id,
+        ]);
+    }
+
+    state.id_object.set(id, obj);
+
+    return obj;
+}
+
+function updateObject(obj) {
+    if (!obj) return;
+
+    // Update the client snapshot of the object
+    const rest = Object.assign({}, obj);
+    for (const property of [
+        "id",
+        "type",
+        "name",
+        "parent_id",
+        "quality",
+        "damage",
+        "weight",
+    ])
+        delete rest[property];
+
+    let snapshot = `{"o":"${obj.parent_id};${obj.id};${obj.type};${obj.name};${obj.quality};${obj.damage};${obj.weight}`;
+
+    for (const [key, value] of Object.entries(rest)) {
+        snapshot += `;${key}=${value}`;
+    }
+    snapshot += '"}';
+
+    if (obj.type === "player") {
+        const client = state.id_object.get(obj.client_id);
+        if (!state.secret_client_connected.has(client?.secret)) return;
+    }
+
+    state.id_snapshot.set(obj.id, snapshot);
+}
+
+function exitHandler(options, exitCode) {
+    if (state.save_on_exit) saveData();
+    if (exitCode || exitCode === 0) console.log(exitCode);
+    if (options.exit) process.exit();
+}
+
+// do something when app is closing
+process.on("exit", exitHandler.bind(null, {}));
+
+// catches ctrl+c event
+process.on("SIGINT", exitHandler.bind(null, { exit: true }));
+
+// catches "kill pid" (for example: nodemon restart)
+process.on("SIGUSR1", exitHandler.bind(null, { exit: true }));
+process.on("SIGUSR2", exitHandler.bind(null, { exit: true }));
+
+// catches uncaught exceptions
+process.on("uncaughtException", exitHandler.bind(null, { exit: true }));
+
+function maintenance() {
+    const now = Date.now();
+    const dirty_snapshots = [];
+
+    for (const [id, obj] of state.id_dirty) {
+        updateObject(obj);
+        const snapshot = state.id_snapshot.get(id);
+        if (snapshot) dirty_snapshots.push(snapshot);
+        state.id_dirty.delete(id);
+    }
+
+    for (const [, client] of state.secret_client_connected.entries()) {
+        if (client.lastSeen && now - client.lastSeen > config.keepAliveTimeout)
+            handleInactiveClient(client);
+        const messages = [
+            ...(state.id_sendbuffer.get(client.id) || []),
+            ...dirty_snapshots,
+        ];
+        if (messages.length) {
+            console.log(`Sent Client ${client.id} ->`, messages);
+            const ws = state.id_ws.get(client.id);
+            ws.send(messages.join("\n"));
+            state.id_sendbuffer.delete(client.id);
+        }
+    }
+}
+
+function attachClientPC(client) {
+    let player;
+
+    if (client.player_id) player = state.id_object.get(client.player_id);
+
+    if (!player) {
+        player = createObject({
+            type: "player",
+            parent_id: state.player_spawn.id,
+            quality: 0.5,
+            damage: 0,
+            weight: 90,
+            client_id: client.id,
+        });
+        player.name = `Guest-${player.id}`;
+        client.player_id = player.id;
+    }
+
+    state.id_dirty.set(player.id, player);
+}
+
+function handleInactiveClient(client) {
+    console.log(`Removing inactive client: ${client.id}`);
+    const ws = state.id_ws.get(client.id);
+    if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+    state.id_snapshot.delete(client.id);
+    state.id_sendbuffer.delete(client.id);
+    state.secret_client_connected.delete(client.secret);
+    state.id_ws.delete(client.id);
 }
 
 function handleConnection(ws) {
@@ -366,87 +317,9 @@ async function handleMessage(ws, msg) {
     }
 }
 
-async function loadData() {
-    const filePath = path.join(config.dataDir, "objects.txt");
-    const fileStream = fs.createReadStream(filePath);
-    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-    const parentStack = [];
-
-    for await (let line of rl) {
-        line = line.trim();
-        const indentLevel = (line.match(/(│|├)/g) || []).length;
-        const match = line.match(/(\w+)-(\w+) \(([^)]*)\) \{([^}]+)\}/);
-
-        if (!match) continue;
-
-        console.log(line);
-
-        const [, type, id, name, propertiesStr] = match;
-        const properties = Object.fromEntries(
-            propertiesStr.split(", ").map((prop) => {
-                const [key, value] = prop.split(": ");
-                return [key, parseFloat(value) || value];
-            })
-        );
-
-        const obj = { id, type, name, ...properties };
-
-        if (indentLevel > 0) {
-            const parent = parentStack[indentLevel - 1];
-            if (parent) {
-                state.id_parentId.set(id, parent.id);
-                state.id_contentIds.get(parent.id).push(id);
-            }
-        } else {
-            state.root = obj;
-        }
-
-        parentStack[indentLevel] = obj;
-        state.id_object.set(id, obj);
-        state.id_contentIds.set(id, []);
-        state.id_dirty.set(id, obj);
-    }
-
-    console.log(`${state.id_object.size} objects loaded`);
-}
-
-async function saveData() {
-    const filePath = path.join(config.dataDir, "objects.txt");
-    const fileStream = fs.createWriteStream(filePath);
-    let saved = 0;
-
-    function writeObject(id, indentLevel = 0) {
-        const obj = state.id_object.get(id);
-        if (!obj) return;
-
-        let indent = "│ ".repeat(indentLevel);
-        if (indent.length > 0) indent = `${indent.substring(0, indent.length - 2)}├ `;
-        const properties = Object.entries(obj)
-            .filter(([key]) => !["id", "type", "name"].includes(key))
-            .map(([key, value]) => `${key}: ${value}`)
-            .join(", ");
-
-        fileStream.write(`${indent}${obj.type}-${obj.id} (${obj.name}) {${properties}}
-`);
-        saved++;
-
-        const children = state.id_contentIds.get(id) || [];
-        for (const childId of children) {
-            writeObject(childId, indentLevel + 1);
-        }
-    }
-
-    if (state.root) {
-        writeObject(state.root.id);
-    }
-
-    fileStream.end();
-    console.log(`${saved} objects saved`);
-}
-
 function resolveClient(ws, message) {
     if (message.type === "init") return handleInit(ws, message);
-    return ws.secret ? state.secret_object.get(ws.secret) : null;
+    return ws.secret ? state.secret_client_connected.get(ws.secret) : null;
 }
 
 async function handleInit(ws, message) {
@@ -458,57 +331,77 @@ async function handleInit(ws, message) {
     };
 
     if (message.clientSecret) {
-        client = state.secret_object_connected.get(message.clientSecret);
+        client = state.secret_client_connected.get(message.clientSecret);
         if (client) {
-            initResponse.rejoin = true;
+            initResponse.isRejoin = true;
+            console.log(`handleInit: Rejoined Client.id=${client.id}`);
         } else {
-            client = state.secret_object.get(message.clientSecret);
+            client = state.secret_client.get(message.clientSecret);
+            console.log(
+                `handleInit: Matched secret "${client.secret}" -> Client.id=${client.id}`
+            );
+            attachClientPC(client);
         }
     }
 
     if (!client) {
-        console.log("Creating new client");
-        client = {
-            id: await this.generateId(),
-            secret: await this.generateId(),
-        };
+        console.log("handleInit: Creating new client");
+        client = createObject({ type: "client", secret: generateId() });
         initResponse.clientSecret = client.secret;
+        attachClientPC(client);
     }
 
-    if (!state.id_buffer.has(client)) state.id_buffer.set(client.id, []);
+    client.lastSeen = Date.now();
 
-    state.secret_object.set(client.secret, client);
-    state.secret_object_connected.set(client.secret, client);
+    state.secret_client.set(client.secret, client);
+    state.secret_client_connected.set(client.secret, client);
     state.id_ws.set(client.id, ws);
 
     ws.secret = client.secret;
 
     initResponse.clientId = client.id;
 
+    initResponse.player_id = client.player_id;
+
     send(client, initResponse);
 
     events.emit("connected", {
         client,
         isNew: initResponse.clientSecret ? true : false,
-        isRejoin: initResponse.rejoin ? true : false,
+        isRejoin: initResponse.isRejoin ? true : false,
     });
 
     return client;
 }
 
 function send(client, message) {
-    state.id_buffer.get(client.id).push(JSON.stringify(message));
+    state.id_sendbuffer.set(client.id, [
+        ...(state.id_sendbuffer.get(client.id) || []),
+        JSON.stringify(message),
+    ]);
 }
 
 events.on("connected", ({ client, isNew, isRejoin }) => {
     if (!isRejoin) {
         send(client, {
-            type: "message",
+            type: "chat",
             channel: "global",
             content: `Welcome${isNew ? "" : " back"} ${client.id}!`,
         });
     }
-    for (const [id, msg] of state.id_dirty) send(client, msg);
+
+    if (!state.id_sendbuffer.has(client.id)) state.id_sendbuffer.set(client.id, []);
+    const client_sendbuffer = state.id_sendbuffer.get(client.id);
+
+    function sendObjectSendBuffer(obj_id) {
+        const snapshot = state.id_snapshot.get(obj_id);
+        if (snapshot) client_sendbuffer.push(snapshot);
+        for (const child_id of state.id_children.get(obj_id) || []) {
+            sendObjectSendBuffer(child_id);
+        }
+    }
+
+    sendObjectSendBuffer(state.world.id);
 });
 
-initialise();
+await initialise();
