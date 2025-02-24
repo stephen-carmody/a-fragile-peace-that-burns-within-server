@@ -44,7 +44,6 @@ async function loadData() {
     // Clear object state
     state.id_object.clear();
     state.id_children.clear();
-    state.id_sendbuffer.clear();
     state.id_dirty.clear();
     state.root = null;
 
@@ -76,7 +75,7 @@ async function loadData() {
         });
         parentStack[indentLevel] = obj;
         if (obj.type === "client") state.secret_client.set(obj.secret, obj);
-
+        if (obj.type === "player") obj.ghost = true;
         if (obj.player_spawn) state.player_spawn = obj;
     }
 
@@ -105,6 +104,7 @@ async function saveData() {
             "quality",
             "damage",
             "weight",
+            "ghost",
         ])
             delete rest[property];
 
@@ -193,6 +193,12 @@ function createObject({
 function updateObject(obj) {
     if (!obj) return;
 
+    // No snapshot for objects with ghost property (i.e. unconnected player objects)
+    if (obj.ghost) {
+        state.id_snapshot.delete(obj.id);
+        return;
+    }
+
     // Update the client snapshot of the object
     const rest = Object.assign({}, obj);
     for (const property of [
@@ -212,11 +218,6 @@ function updateObject(obj) {
         snapshot += `;${key}=${value}`;
     }
     snapshot += '"}';
-
-    if (obj.type === "player") {
-        const client = state.id_object.get(obj.client_id);
-        if (!state.secret_client_connected.has(client?.secret)) return;
-    }
 
     state.id_snapshot.set(obj.id, snapshot);
 }
@@ -254,16 +255,14 @@ function maintenance() {
     for (const [, client] of state.secret_client_connected.entries()) {
         if (client.lastSeen && now - client.lastSeen > config.keepAliveTimeout)
             handleInactiveClient(client);
-        const messages = [
-            ...(state.id_sendbuffer.get(client.id) || []),
-            ...dirty_snapshots,
-        ];
-        if (messages.length) {
-            console.log(`Sent Client ${client.id} ->`, messages);
+        const sendbuffer = state.id_sendbuffer.get(client.id);
+        dirty_snapshots.push(...sendbuffer);
+        if (dirty_snapshots.length) {
+            console.log(`Sent Client ${client.id} ->`, dirty_snapshots);
             const ws = state.id_ws.get(client.id);
-            ws.send(messages.join("\n"));
-            state.id_sendbuffer.delete(client.id);
+            ws.send(dirty_snapshots.join("\n"));
         }
+        sendbuffer.length = 0;
     }
 }
 
@@ -285,6 +284,7 @@ function attachClientPC(client) {
         client.player_id = player.id;
     }
 
+    delete player.ghost;
     state.id_dirty.set(player.id, player);
 }
 
@@ -296,6 +296,7 @@ function handleInactiveClient(client) {
     state.id_sendbuffer.delete(client.id);
     state.secret_client_connected.delete(client.secret);
     state.id_ws.delete(client.id);
+    broadcast({ type: "disconnected", id: client.id });
 }
 
 function handleConnection(ws) {
@@ -363,6 +364,8 @@ async function handleInit(ws, message) {
 
     initResponse.player_id = client.player_id;
 
+    if (!state.id_sendbuffer.has(client.id)) state.id_sendbuffer.set(client.id, []);
+
     send(client, initResponse);
 
     events.emit("connected", {
@@ -375,10 +378,14 @@ async function handleInit(ws, message) {
 }
 
 function send(client, message) {
-    state.id_sendbuffer.set(client.id, [
-        ...(state.id_sendbuffer.get(client.id) || []),
-        JSON.stringify(message),
-    ]);
+    state.id_sendbuffer.get(client.id).push(JSON.stringify(message));
+}
+
+function broadcast(message) {
+    const stringified = JSON.stringify(message);
+    for (const [, client] of state.secret_client_connected.entries()) {
+        state.id_sendbuffer.get(client.id).push(stringified);
+    }
 }
 
 events.on("connected", ({ client, isNew, isRejoin }) => {
@@ -390,7 +397,6 @@ events.on("connected", ({ client, isNew, isRejoin }) => {
         });
     }
 
-    if (!state.id_sendbuffer.has(client.id)) state.id_sendbuffer.set(client.id, []);
     const client_sendbuffer = state.id_sendbuffer.get(client.id);
 
     function sendObjectSendBuffer(obj_id) {
