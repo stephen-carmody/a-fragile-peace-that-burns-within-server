@@ -36,16 +36,9 @@ async function initialise() {
 }
 
 async function loadData() {
-    const filePath = path.join(config.dataDir, "objects.txt");
     const fileStream = fs.createReadStream(config.dataObjectsPath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     const parentStack = [];
-
-    // Clear object state
-    state.id_object.clear();
-    state.id_children.clear();
-    state.id_dirty.clear();
-    state.root = null;
 
     // Disable save on exit to avoid corrupting data on failed read
     state.save_on_exit = false;
@@ -295,6 +288,11 @@ function handleInactiveClient(client) {
     state.id_snapshot.delete(client.id);
     state.id_sendbuffer.delete(client.id);
     state.secret_client_connected.delete(client.secret);
+
+    // Mark player as ghost
+    const player = state.id_object.get(client.player_id);
+    if (player) player.ghost = true;
+
     state.id_ws.delete(client.id);
     broadcast({ type: "disconnected", id: client.id });
 }
