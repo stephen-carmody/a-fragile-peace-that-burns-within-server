@@ -1,10 +1,12 @@
 root-0 () [1,0,0] {}
 ├ clients-1 () [1,0,0] {}
-│├ client-equ9 () [1,0,0] {"secret":"s0b5","lastSeen":1740391829844,"player_id":"dsz3"}
-│├ client-tg6c () [1,0,0] {"secret":"5e7n","player_id":"01fv","lastSeen":1740362880635}
-│├ client-7z6b () [1,0,0] {"secret":"3m9m","player_id":"jbsd","lastSeen":1740363188038}
-│├ client-4d7c () [1,0,0] {"secret":"4yem","player_id":"49my","lastSeen":1740367586510}
-│├ client-c9mu () [1,0,0] {"secret":"nk7t","player_id":"1cu8","lastSeen":1740386331666}
+│├ client-equ9 () [1,0,0] {"secret":"cmsr","lastSeen":1740391829844,"player_id":"dsz3"}
+│├ client-tg6c () [1,0,0] {"secret":"rknh","player_id":"01fv","lastSeen":1740362880635}
+│├ client-7z6b () [1,0,0] {"secret":"wsps","player_id":"jbsd","lastSeen":1740363188038}
+│├ client-4d7c () [1,0,0] {"secret":"usb3","player_id":"49my","lastSeen":1740367586510}
+│├ client-c9mu () [1,0,0] {"secret":"kna6","player_id":"1cu8","lastSeen":1740386331666}
+│├ client-9j6a () [1,0,0] {"secret":"1kyu","player_id":"b0ox","lastSeen":1740454270245}
+│├ client-890r () [1,0,0] {"secret":"5e9k","player_id":"t26m","lastSeen":1740461384237}
 ├ world-2 (Kingdom of Eldoria) [1,0,51179.5] {}
 │├ town-3c4d (Stonehaven) [1,0,3203.5] {"player_spawn":true}
 ││├ building-5e6f (Blacksmith) [0.85,0.15,755] {}
@@ -28,6 +30,8 @@ root-0 () [1,0,0] {}
 ││├ player-jbsd (Guest-jbsd) [0.5,0,90] {"client_id":"7z6b"}
 ││├ player-49my (Guest-49my) [0.5,0,90] {"client_id":"4d7c"}
 ││├ player-1cu8 (Guest-1cu8) [0.5,0,90] {"client_id":"c9mu"}
+││├ player-b0ox (Guest-b0ox) [0.5,0,90] {"client_id":"9j6a"}
+││├ player-t26m (Guest-t26m) [0.5,0,90] {"client_id":"890r"}
 │├ village-y7z8 (Willowbrook) [1,0,1200.5] {}
 ││├ building-m3b0 (Hearth & Home Inn) [0.85,0.1,600] {}
 ││├ well-c1d2 (Willowbrook Well) [0.75,0.25,901] {}

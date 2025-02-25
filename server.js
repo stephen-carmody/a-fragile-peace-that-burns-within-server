@@ -10,6 +10,7 @@ const config = { port: 8080, dataDir: "./data", keepAliveTimeout: 30000 };
 config.dataObjectsPath = path.join(config.dataDir, "objects.txt");
 
 const state = {
+    wss: null,
     id_object: new Map(),
     id_children: new Map(),
     id_sendbuffer: new Map(),
@@ -20,20 +21,9 @@ const state = {
     id_snapshot: new Map(),
     player_spawn: null,
     secret_client: new Map(),
-    secret_client_connected: new Map(),
-    id_ws: new Map(),
+    ws_client: new Map(),
     save_on_exit: false,
 };
-
-async function initialise() {
-    console.log("Initialising game server...");
-    await loadData();
-    maintenance();
-    const wss = new WebSocketServer({ port: config.port });
-    wss.on("connection", handleConnection);
-    setInterval(maintenance, 2000);
-    console.log(`Game server running on port ${config.port}`);
-}
 
 async function loadData() {
     const fileStream = fs.createReadStream(config.dataObjectsPath);
@@ -67,8 +57,6 @@ async function loadData() {
             ...JSON.parse(rest),
         });
         parentStack[indentLevel] = obj;
-        if (obj.type === "client") state.secret_client.set(obj.secret, obj);
-        if (obj.type === "player") obj.ghost = true;
         if (obj.player_spawn) state.player_spawn = obj;
     }
 
@@ -160,11 +148,16 @@ function createObject({
         state.clients = obj;
     } else if (type === "client") {
         parent_id = state.clients.id;
+        obj.secret = generateId();
+        state.secret_client.set(obj.secret, obj);
+        obj.ghost = true;
     } else if (type === "world") {
         if (state.world) throw new Error("World object already exists");
         parent_id = state.root.id;
         state.world = obj;
         state.id_dirty.set(id, obj);
+    } else if (obj.type === "player") {
+        obj.ghost = true;
     } else {
         if (!parent_id) parent_id = state.world;
         state.id_dirty.set(id, obj);
@@ -186,8 +179,8 @@ function createObject({
 function updateObject(obj) {
     if (!obj) return;
 
-    // No snapshot for objects with ghost property (i.e. unconnected player objects)
-    if (obj.ghost) {
+    // No snapshot for client or objects with ghost property
+    if (obj.ghost || obj.type === "client") {
         state.id_snapshot.delete(obj.id);
         return;
     }
@@ -245,134 +238,58 @@ function maintenance() {
         state.id_dirty.delete(id);
     }
 
-    for (const [, client] of state.secret_client_connected.entries()) {
-        if (client.lastSeen && now - client.lastSeen > config.keepAliveTimeout)
+    if (!state.wss) return;
+
+    state.wss.clients.forEach((ws) => {
+        const client = state.ws_client.get(ws);
+        if (!client) {
+            console.log("Skipping websocket with no Client");
+            return;
+        }
+        if (now - (client.lastSeen || 0) > config.keepAliveTimeout)
             handleInactiveClient(client);
         const sendbuffer = state.id_sendbuffer.get(client.id);
         dirty_snapshots.push(...sendbuffer);
         if (dirty_snapshots.length) {
             console.log(`Sent Client ${client.id} ->`, dirty_snapshots);
-            const ws = state.id_ws.get(client.id);
             ws.send(dirty_snapshots.join("\n"));
         }
         sendbuffer.length = 0;
-    }
+    });
 }
 
-function attachClientPC(client) {
-    let player;
-
-    if (client.player_id) player = state.id_object.get(client.player_id);
-
-    if (!player) {
-        player = createObject({
-            type: "player",
-            parent_id: state.player_spawn.id,
-            quality: 0.5,
-            damage: 0,
-            weight: 90,
-            client_id: client.id,
-        });
-        player.name = `Guest-${player.id}`;
-        client.player_id = player.id;
-    }
-
-    delete player.ghost;
-    state.id_dirty.set(player.id, player);
-}
-
-function handleInactiveClient(client) {
+function handleInactiveClient(ws, client) {
     console.log(`Removing inactive client: ${client.id}`);
-    const ws = state.id_ws.get(client.id);
     if (ws && ws.readyState === WebSocket.OPEN) ws.close();
     state.id_snapshot.delete(client.id);
     state.id_sendbuffer.delete(client.id);
-    state.secret_client_connected.delete(client.secret);
 
-    // Mark player as ghost
+    // Mark client and player as ghost to fail rejoin check and make invisible to other clients
+    client.ghost = true;
     const player = state.id_object.get(client.player_id);
     if (player) player.ghost = true;
 
-    state.id_ws.delete(client.id);
     broadcast({ type: "disconnected", id: client.id });
 }
 
 function handleConnection(ws) {
     console.log("WebSocket connected.");
     ws.on("message", (data) => handleMessage(ws, data.toString()));
+    ws.on("close", () => state.ws_client.delete(ws));
 }
 
 async function handleMessage(ws, msg) {
     try {
+        console.log(msg);
         msg.split("\n").forEach(async (m) => {
             const message = JSON.parse(m);
-            let client = resolveClient(ws, message);
-            if (!client) return;
-            client.lastSeen = Date.now();
-            events.emit(message.type, message);
+            let client = state.ws_client.get(ws);
+            if (client) client.lastSeen = Date.now();
+            events.emit(message.type, { ws, client, message });
         });
     } catch (err) {
         console.error("Error processing message:", err);
     }
-}
-
-function resolveClient(ws, message) {
-    if (message.type === "init") return handleInit(ws, message);
-    return ws.secret ? state.secret_client_connected.get(ws.secret) : null;
-}
-
-async function handleInit(ws, message) {
-    let client;
-
-    let initResponse = {
-        type: "init",
-        keepAliveTimeout: config.keepAliveTimeout,
-    };
-
-    if (message.clientSecret) {
-        client = state.secret_client_connected.get(message.clientSecret);
-        if (client) {
-            initResponse.isRejoin = true;
-            console.log(`handleInit: Rejoined Client.id=${client.id}`);
-        } else {
-            client = state.secret_client.get(message.clientSecret);
-            console.log(
-                `handleInit: Matched secret "${client.secret}" -> Client.id=${client.id}`
-            );
-            attachClientPC(client);
-        }
-    }
-
-    if (!client) {
-        console.log("handleInit: Creating new client");
-        client = createObject({ type: "client", secret: generateId() });
-        initResponse.clientSecret = client.secret;
-        attachClientPC(client);
-    }
-
-    client.lastSeen = Date.now();
-
-    state.secret_client.set(client.secret, client);
-    state.secret_client_connected.set(client.secret, client);
-    state.id_ws.set(client.id, ws);
-
-    ws.secret = client.secret;
-
-    initResponse.clientId = client.id;
-
-    initResponse.player_id = client.player_id;
-
-    if (!state.id_sendbuffer.has(client.id)) state.id_sendbuffer.set(client.id, []);
-
-    send(client, initResponse);
-
-    events.emit("connected", {
-        client,
-        isNew: initResponse.clientSecret ? true : false,
-        isRejoin: initResponse.isRejoin ? true : false,
-    });
-
-    return client;
 }
 
 function send(client, message) {
@@ -380,18 +297,74 @@ function send(client, message) {
 }
 
 function broadcast(message) {
-    const stringified = JSON.stringify(message);
-    for (const [, client] of state.secret_client_connected.entries()) {
-        state.id_sendbuffer.get(client.id).push(stringified);
-    }
+    message = JSON.stringify(message);
+    state.wss.clients.forEach((ws) => {
+        const client = state.ws_client.get(ws);
+        state.id_sendbuffer.get(client.id).push(message);
+    });
 }
 
-events.on("connected", ({ client, isNew, isRejoin }) => {
-    if (!isRejoin) {
+events.on("init", ({ ws, client, message }) => {
+    const initResponse = {
+        type: "init",
+        keepAliveTimeout: config.keepAliveTimeout,
+    };
+
+    if (!client) {
+        client = state.secret_client.get(message.clientSecret);
+
+        if (client) {
+            console.log(
+                `handleInit: Matched secret "${client.secret}" -> Client.id=${client.id}`
+            );
+        } else {
+            console.log("handleInit: Creating new client");
+            client = createObject({ type: "client" });
+            initResponse.clientSecret = client.secret;
+        }
+
+        let player = state.id_object.get(client.player_id);
+
+        if (player) {
+            delete player.ghost;
+            state.id_dirty.set(player.id, player);
+        } else {
+            player = createObject({
+                type: "player",
+                parent_id: state.player_spawn.id,
+                quality: 0.5,
+                damage: 0,
+                weight: 90,
+                client_id: client.id,
+            });
+            player.name = `Guest-${player.id}`;
+            delete player.ghost;
+            client.player_id = player.id;
+        }
+        state.secret_client.set(client.secret, client);
+        state.ws_client.set(ws, client);
+
+        if (!client.ghost) {
+            initResponse.isRejoin = true;
+            console.log(`handleInit: Rejoined Client.id=${client.id}`);
+        } else {
+            delete client.ghost;
+            state.id_sendbuffer.set(client.id, []);
+        }
+
+        client.lastSeen = Date.now();
+    }
+
+    initResponse.clientId = client.id;
+    initResponse.player_id = client.player_id;
+
+    send(client, initResponse);
+
+    if (!initResponse.isRejoin) {
         send(client, {
             type: "chat",
             channel: "global",
-            content: `Welcome${isNew ? "" : " back"} ${client.id}!`,
+            content: `Welcome${"clientSecret" in initResponse ? "" : " back"} ${client.id}!`,
         });
     }
 
@@ -408,4 +381,14 @@ events.on("connected", ({ client, isNew, isRejoin }) => {
     sendObjectSendBuffer(state.world.id);
 });
 
-await initialise();
+async function initialise() {
+    console.log("Initialising game server...");
+    await loadData();
+    maintenance();
+    state.wss = new WebSocketServer({ port: config.port });
+    state.wss.on("connection", handleConnection);
+    setInterval(maintenance, 2000);
+    console.log(`Game server running on port ${config.port}`);
+}
+
+initialise();
