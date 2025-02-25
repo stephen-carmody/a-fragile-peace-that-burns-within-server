@@ -10,28 +10,26 @@ const config = { port: 8080, dataDir: "./data", keepAliveTimeout: 30000 };
 config.dataObjectsPath = path.join(config.dataDir, "objects.txt");
 
 const state = {
-    wss: null,
+    loaded: false,
+    ws_client: new Map(),
+    secret_client: new Map(),
     id_object: new Map(),
     id_children: new Map(),
+    id_snapshot: new Map(),
     id_sendbuffer: new Map(),
     id_dirty: new Map(),
-    root: null,
-    clients: null,
-    world: null,
-    id_snapshot: new Map(),
-    player_spawn: null,
-    secret_client: new Map(),
-    ws_client: new Map(),
-    save_on_exit: false,
+    obj_root: null,
+    obj_clients: null,
+    obj_world: null,
+    obj_playerspawn: null,
 };
 
-async function loadData() {
+let wss;
+
+async function loadState() {
     const fileStream = fs.createReadStream(config.dataObjectsPath);
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
     const parentStack = [];
-
-    // Disable save on exit to avoid corrupting data on failed read
-    state.save_on_exit = false;
 
     for await (let line of rl) {
         line = line.trim();
@@ -57,16 +55,16 @@ async function loadData() {
             ...JSON.parse(rest),
         });
         parentStack[indentLevel] = obj;
-        if (obj.player_spawn) state.player_spawn = obj;
+        if (obj.playerspawn) state.obj_playerspawn = obj;
     }
 
-    // Enable save on exit now we have finished loading successfully
-    state.save_on_exit = true;
-
+    state.loaded = true;
     console.log(`${state.id_object.size} objects loaded`);
 }
 
-async function saveData() {
+async function saveState() {
+    if (!state.loaded) return;
+
     let buffer = "";
 
     function writeObject(id, indentLevel = 0) {
@@ -98,7 +96,7 @@ async function saveData() {
         }
     }
 
-    if (state.root) writeObject(state.root.id);
+    writeObject(state.obj_root.id);
 
     const tmpPath = path.join(config.dataDir, "objects.tmp");
     fs.writeFileSync(tmpPath, buffer);
@@ -140,26 +138,26 @@ function createObject({
     };
 
     if (type === "root") {
-        if (state.root) throw new Error("Root object already exists");
+        if (state.obj_root) throw new Error("Root object already exists");
         parent_id = null;
-        state.root = obj;
+        state.obj_root = obj;
     } else if (type === "clients") {
-        if (state.clients) throw new Error("Clients object already exists");
-        state.clients = obj;
+        if (state.obj_clients) throw new Error("Clients object already exists");
+        state.obj_clients = obj;
     } else if (type === "client") {
-        parent_id = state.clients.id;
-        obj.secret = generateId();
+        parent_id = state.obj_clients.id;
+        if (!obj.secret) obj.secret = generateId();
         state.secret_client.set(obj.secret, obj);
         obj.ghost = true;
     } else if (type === "world") {
-        if (state.world) throw new Error("World object already exists");
-        parent_id = state.root.id;
-        state.world = obj;
+        if (state.obj_world) throw new Error("World object already exists");
+        parent_id = state.obj_root.id;
+        state.obj_world = obj;
         state.id_dirty.set(id, obj);
     } else if (obj.type === "player") {
         obj.ghost = true;
     } else {
-        if (!parent_id) parent_id = state.world;
+        if (!parent_id) parent_id = state.obj_world.id;
         state.id_dirty.set(id, obj);
     }
 
@@ -209,7 +207,7 @@ function updateObject(obj) {
 }
 
 function exitHandler(options, exitCode) {
-    if (state.save_on_exit) saveData();
+    saveState();
     if (exitCode || exitCode === 0) console.log(exitCode);
     if (options.exit) process.exit();
 }
@@ -238,9 +236,9 @@ function maintenance() {
         state.id_dirty.delete(id);
     }
 
-    if (!state.wss) return;
+    if (!wss) return;
 
-    state.wss.clients.forEach((ws) => {
+    wss.clients.forEach((ws) => {
         const client = state.ws_client.get(ws);
         if (!client) {
             console.log("Skipping websocket with no Client");
@@ -272,12 +270,6 @@ function handleInactiveClient(ws, client) {
     broadcast({ type: "disconnected", id: client.id });
 }
 
-function handleConnection(ws) {
-    console.log("WebSocket connected.");
-    ws.on("message", (data) => handleMessage(ws, data.toString()));
-    ws.on("close", () => state.ws_client.delete(ws));
-}
-
 async function handleMessage(ws, msg) {
     try {
         console.log(msg);
@@ -298,7 +290,7 @@ function send(client, message) {
 
 function broadcast(message) {
     message = JSON.stringify(message);
-    state.wss.clients.forEach((ws) => {
+    wss.clients.forEach((ws) => {
         const client = state.ws_client.get(ws);
         state.id_sendbuffer.get(client.id).push(message);
     });
@@ -331,7 +323,7 @@ events.on("init", ({ ws, client, message }) => {
         } else {
             player = createObject({
                 type: "player",
-                parent_id: state.player_spawn.id,
+                parent_id: state.obj_playerspawn.id,
                 quality: 0.5,
                 damage: 0,
                 weight: 90,
@@ -341,7 +333,7 @@ events.on("init", ({ ws, client, message }) => {
             delete player.ghost;
             client.player_id = player.id;
         }
-        state.secret_client.set(client.secret, client);
+
         state.ws_client.set(ws, client);
 
         if (!client.ghost) {
@@ -378,15 +370,18 @@ events.on("init", ({ ws, client, message }) => {
         }
     }
 
-    sendObjectSendBuffer(state.world.id);
+    sendObjectSendBuffer(state.obj_world.id);
 });
 
 async function initialise() {
     console.log("Initialising game server...");
-    await loadData();
+    await loadState();
     maintenance();
-    state.wss = new WebSocketServer({ port: config.port });
-    state.wss.on("connection", handleConnection);
+    wss = new WebSocketServer({ port: config.port });
+    wss.on("connection", (ws) => {
+        ws.on("message", (data) => handleMessage(ws, data.toString()));
+        ws.on("close", () => state.ws_client.delete(ws));
+    });
     setInterval(maintenance, 2000);
     console.log(`Game server running on port ${config.port}`);
 }
