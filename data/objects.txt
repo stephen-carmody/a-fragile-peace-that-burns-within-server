@@ -1,7 +1,7 @@
 root-0 () [1,0,0] {}
 ├ clients-1 () [1,0,0] {}
 │├ client-i9fw () [1,0,0] {"secret":"l5ve","player_id":"y8rc","lastSeen":1740476684369}
-│├ client-p833 () [1,0,0] {"secret":"mhwx","player_id":"i7lf","lastSeen":1740543686565}
+│├ client-p833 () [1,0,0] {"secret":"mhwx","player_id":"i7lf","lastSeen":1740548246315}
 ├ world-2 (Kingdom of Eldoria) [1,0,51179.5] {}
 │├ town-3c4d (Stonehaven) [1,0,3203.5] {"playerspawn":true}
 ││├ building-5e6f (Blacksmith) [0.85,0.15,755] {}
