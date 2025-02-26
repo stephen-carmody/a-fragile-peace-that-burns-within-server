@@ -1,6 +1,7 @@
 root-0 () [1,0,0] {}
 ├ clients-1 () [1,0,0] {}
 │├ client-i9fw () [1,0,0] {"secret":"l5ve","player_id":"y8rc","lastSeen":1740476684369}
+│├ client-p833 () [1,0,0] {"secret":"mhwx","player_id":"i7lf","lastSeen":1740543686565}
 ├ world-2 (Kingdom of Eldoria) [1,0,51179.5] {}
 │├ town-3c4d (Stonehaven) [1,0,3203.5] {"playerspawn":true}
 ││├ building-5e6f (Blacksmith) [0.85,0.15,755] {}
@@ -17,6 +18,7 @@ root-0 () [1,0,0] {}
 │││├ npc-o7p8 (Merchant Elric) [0.85,0.05,80] {}
 │││├ cart-q9r0 (Cart of Produce) [0.75,0.2,150] {}
 ││├ player-y8rc (Guest-y8rc) [0.5,0,90] {"client_id":"i9fw"}
+││├ player-i7lf (Guest-i7lf) [0.5,0,90] {"client_id":"p833"}
 │├ village-y7z8 (Willowbrook) [1,0,1200.5] {}
 ││├ building-m3b0 (Hearth & Home Inn) [0.85,0.1,600] {}
 ││├ well-c1d2 (Willowbrook Well) [0.75,0.25,901] {}

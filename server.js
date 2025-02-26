@@ -153,29 +153,26 @@ function createObject({
         if (state.obj_world) throw new Error("World object already exists");
         parent_id = state.obj_root.id;
         state.obj_world = obj;
-        state.id_dirty.set(id, obj);
     } else if (obj.type === "player") {
         obj.ghost = true;
     } else {
         if (!parent_id) parent_id = state.obj_world.id;
-        state.id_dirty.set(id, obj);
     }
 
     if (parent_id) {
         obj.parent_id = parent_id;
-        state.id_children.set(parent_id, [
-            ...(state.id_children.get(parent_id) || []),
-            id,
-        ]);
+        if (!state.id_children.has(parent_id)) state.id_children.set(parent_id, []);
+        state.id_children.get(parent_id).push(id);
     }
 
     state.id_object.set(id, obj);
+    dirty(obj);
 
     return obj;
 }
 
 function updateObject(obj) {
-    if (!obj) return;
+    state.id_dirty.delete(obj.id);
 
     // No snapshot for client or objects with ghost property
     if (obj.ghost || obj.type === "client") {
@@ -231,19 +228,17 @@ function maintenance() {
 
     for (const [id, obj] of state.id_dirty) {
         updateObject(obj);
-        const snapshot = state.id_snapshot.get(id);
-        if (snapshot) dirty_snapshots.push(snapshot);
-        state.id_dirty.delete(id);
+        if (!obj.ghost) {
+            const snapshot = state.id_snapshot.get(id);
+            if (snapshot) dirty_snapshots.push(snapshot);
+        }
     }
 
     if (!wss) return;
 
     wss.clients.forEach((ws) => {
         const client = state.ws_client.get(ws);
-        if (!client) {
-            console.log("Skipping websocket with no Client");
-            return;
-        }
+        if (!client) return console.log("Skipping websocket with no Client");
         if (now - (client.lastSeen || 0) > config.keepAliveTimeout)
             handleInactiveClient(client);
         const sendbuffer = state.id_sendbuffer.get(client.id);
@@ -296,6 +291,10 @@ function broadcast(message) {
     });
 }
 
+function dirty(obj) {
+    state.id_dirty.set(obj.id, obj);
+}
+
 events.on("init", ({ ws, client, message }) => {
     const initResponse = {
         type: "init",
@@ -319,7 +318,7 @@ events.on("init", ({ ws, client, message }) => {
 
         if (player) {
             delete player.ghost;
-            state.id_dirty.set(player.id, player);
+            dirty(player);
         } else {
             player = createObject({
                 type: "player",
