@@ -1,7 +1,11 @@
 root-0 () [1,0,0] {}
 ├ clients-1 () [1,0,0] {}
-│├ client-i9fw () [1,0,0] {"secret":"l5ve","player_id":"y8rc","lastSeen":1740476684369}
-│├ client-p833 () [1,0,0] {"secret":"mhwx","player_id":"i7lf","lastSeen":1740548246315}
+│├ client-i9fw () [1,0,0] {"secret":"l5ve","player_id":"y8rc","lastSeen":1740894501070}
+│├ client-ovb2 () [1,0,0] {"secret":"o5uh","player_id":"5djv","lastSeen":1740893471775}
+│├ client-q3ic () [1,0,0] {"secret":"s5yv","player_id":"01ho","lastSeen":1740893734479}
+│├ client-yesj () [1,0,0] {"secret":"yqyo","player_id":"jml2","lastSeen":1740893801370}
+│├ client-2bw9 () [1,0,0] {"secret":"mi9s","player_id":"dr8u","lastSeen":1740894225675}
+│├ client-dcwc () [1,0,0] {"secret":"xbrj","player_id":"jxw2","lastSeen":1740894398571}
 ├ world-2 (Kingdom of Eldoria) [1,0,51179.5] {}
 │├ town-3c4d (Stonehaven) [1,0,3203.5] {"playerspawn":true}
 ││├ building-5e6f (Blacksmith) [0.85,0.15,755] {}
@@ -18,7 +22,33 @@ root-0 () [1,0,0] {}
 │││├ npc-o7p8 (Merchant Elric) [0.85,0.05,80] {}
 │││├ cart-q9r0 (Cart of Produce) [0.75,0.2,150] {}
 ││├ player-y8rc (Guest-y8rc) [0.5,0,90] {"client_id":"i9fw"}
-││├ player-i7lf (Guest-i7lf) [0.5,0,90] {"client_id":"p833"}
+│││├ head-y8rc2 (Head) [0.5,0,10] {}
+││││├ clothing-y8rc3 (Cloth Hood) [0.7,0,1] {"armor":1}
+│││├ torso-y8rc4 (Torso) [0.5,0,35] {}
+││││├ clothing-y8rc5 (Cloth Shirt) [0.6,0,2] {"armor":1}
+││││├ clothing-y8rc6 (Leather Vest) [0.7,0,4] {"armor":3}
+││││├ container-y8rc7 (Leather Backpack) [0.8,0,5] {}
+│││││├ item-y8rc8 (Healing Potion) [1,0,0.5] {"potency":20}
+│││││├ container-y8rc9 (Water Pouch) [0.9,0,1] {}
+││││││├ water-y8rca (Water) [1,0,0.8] {}
+│││││├ tool-y8rcb (Steel and Flint) [0.8,0,0.5] {}
+│││├ left_arm-y8rcc (Left Arm) [0.5,0,10] {}
+││││├ left_hand-y8rcd (Left Hand) [0.5,0,3] {}
+│││││├ clothing-y8rce (Leather Glove) [0.7,0,0.5] {"armor":1}
+│││├ right_arm-y8rcf (Right Arm) [0.5,0,10] {}
+││││├ right_hand-y8rcg (Right Hand) [0.5,0,3] {}
+│││││├ clothing-y8rch (Leather Glove) [0.7,0,0.5] {"armor":1}
+│││├ legs-y8rcj (Legs) [0.5,0,25] {}
+││││├ clothing-y8rck (Leather Pants) [0.7,0,3] {"armor":2}
+││││├ left_foot-y8rcl (Left Foot) [0.5,0,5] {}
+│││││├ clothing-y8rcm (Leather Boot) [0.7,0,1.5] {"armor":1}
+││││├ right_foot-y8rcn (Right Foot) [0.5,0,5] {}
+│││││├ clothing-y8rco (Leather Boot) [0.7,0,1.5] {"armor":1}
+││├ player-5djv (Guest-5djv) [0.5,0,90] {"client_id":"ovb2"}
+││├ player-01ho (Guest-01ho) [0.5,0,90] {"client_id":"q3ic"}
+││├ player-jml2 (Guest-jml2) [0.5,0,90] {"client_id":"yesj"}
+││├ player-dr8u (Guest-dr8u) [0.5,0,90] {"client_id":"2bw9"}
+││├ player-jxw2 (Guest-jxw2) [0.5,0,90] {"client_id":"dcwc"}
 │├ village-y7z8 (Willowbrook) [1,0,1200.5] {}
 ││├ building-m3b0 (Hearth & Home Inn) [0.85,0.1,600] {}
 ││├ well-c1d2 (Willowbrook Well) [0.75,0.25,901] {}
